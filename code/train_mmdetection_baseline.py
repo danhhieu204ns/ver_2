@@ -10,6 +10,7 @@ MODEL_CONFIGS = {
 def require_mmdet():
     try:
         from mmengine.config import Config
+        from mmengine.hub import get_config
         from mmengine.runner import Runner
         from mmdet.utils import register_all_modules
     except ImportError as exc:
@@ -17,7 +18,13 @@ def require_mmdet():
             "MMDetection backend is required for Cascade R-CNN. Install compatible "
             "mmdet/mmcv/mmengine, then rerun this command. Original error: " + str(exc)
         ) from exc
-    return Config, Runner, register_all_modules
+    return Config, get_config, Runner, register_all_modules
+
+
+def load_config(config_path, Config, get_config):
+    if "::" in str(config_path):
+        return get_config(str(config_path))
+    return Config.fromfile(config_path)
 
 
 def set_num_classes(node, num_classes):
@@ -68,11 +75,11 @@ def parse_args():
 
 def main():
     args = parse_args()
-    Config, Runner, register_all_modules = require_mmdet()
+    Config, get_config, Runner, register_all_modules = require_mmdet()
     register_all_modules(init_default_scope=True)
 
     config_path = args.config or MODEL_CONFIGS[args.architecture]
-    cfg = Config.fromfile(config_path)
+    cfg = load_config(config_path, Config, get_config)
     run_name = args.run_name or f"baseline_{args.architecture}_seed{args.seed}"
     cfg.work_dir = str(Path(args.output_dir) / run_name)
 
