@@ -26,15 +26,29 @@ def safe_link_or_copy(src, dst, mode):
         shutil.copy2(src, dst)
 
 
+def build_category_mapping(coco):
+    categories = sorted(coco.get("categories", []), key=lambda item: int(item["id"]))
+    return {int(category["id"]): idx for idx, category in enumerate(categories)}
+
+
 def coco_bbox_to_yolo(bbox, width, height):
-    x, y, w, h = bbox
-    xc = (x + w / 2.0) / width
-    yc = (y + h / 2.0) / height
-    return xc, yc, w / width, h / height
+    x, y, w, h = [float(v) for v in bbox]
+    x1 = max(0.0, min(width, x))
+    y1 = max(0.0, min(height, y))
+    x2 = max(0.0, min(width, x + w))
+    y2 = max(0.0, min(height, y + h))
+    bw = x2 - x1
+    bh = y2 - y1
+    if bw <= 0.0 or bh <= 0.0:
+        return None
+    xc = (x1 + bw / 2.0) / width
+    yc = (y1 + bh / 2.0) / height
+    return xc, yc, bw / width, bh / height
 
 
 def convert_split(data_root, coco_path, output_root, split, mode):
     coco = load_coco(coco_path)
+    cat_id_to_class = build_category_mapping(coco)
     images = {img["id"]: img for img in coco.get("images", [])}
     anns_by_image = {image_id: [] for image_id in images}
     for ann in coco.get("annotations", []):
@@ -59,10 +73,14 @@ def convert_split(data_root, coco_path, output_root, split, mode):
             for ann in anns_by_image.get(image_id, []):
                 if ann.get("iscrowd", 0):
                     continue
-                cls = int(ann["category_id"]) - 1
-                xc, yc, bw, bh = coco_bbox_to_yolo(ann["bbox"], width, height)
-                if bw <= 0 or bh <= 0:
+                category_id = int(ann["category_id"])
+                if category_id not in cat_id_to_class:
+                    raise KeyError(f"Annotation category_id={category_id} missing from categories in {coco_path}")
+                converted = coco_bbox_to_yolo(ann["bbox"], width, height)
+                if converted is None:
                     continue
+                xc, yc, bw, bh = converted
+                cls = cat_id_to_class[category_id]
                 lines.append(f"{cls} {xc:.8f} {yc:.8f} {bw:.8f} {bh:.8f}")
 
             dst_label.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
@@ -94,7 +112,7 @@ def parse_args():
     )
     parser.add_argument("--data-root", default="data", type=Path)
     parser.add_argument("--coco-dir", default="data/audit/coco", type=Path)
-    parser.add_argument("--output-root", default="data/ultralytics_minimal", type=Path)
+    parser.add_argument("--output-root", default="data/ultralytics_stage2", type=Path)
     parser.add_argument(
         "--mode",
         choices=("hardlink", "copy"),

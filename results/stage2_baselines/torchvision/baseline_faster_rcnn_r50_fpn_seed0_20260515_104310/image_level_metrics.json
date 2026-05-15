@@ -1,0 +1,158 @@
+{
+  "threshold_source": "validation",
+  "target_val_fpr": 0.01,
+  "selected_threshold": 0.9848036766062246,
+  "checkpoint": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310/best_map.pth",
+  "splits": {
+    "val": {
+      "hard_neg": {
+        "images": 118,
+        "flagged": 1,
+        "false_positive": 1,
+        "true_positive": 0,
+        "flag_rate": 0.00847457627118644,
+        "fpr": 0.00847457627118644,
+        "recall_image": 0.0
+      },
+      "in_domain_neg": {
+        "images": 285,
+        "flagged": 5,
+        "false_positive": 5,
+        "true_positive": 0,
+        "flag_rate": 0.017543859649122806,
+        "fpr": 0.017543859649122806,
+        "recall_image": 0.0
+      },
+      "out_domain_neg": {
+        "images": 205,
+        "flagged": 0,
+        "false_positive": 0,
+        "true_positive": 0,
+        "flag_rate": 0.0,
+        "fpr": 0.0,
+        "recall_image": 0.0
+      },
+      "positive": {
+        "images": 253,
+        "flagged": 124,
+        "false_positive": 0,
+        "true_positive": 124,
+        "flag_rate": 0.4901185770750988,
+        "fpr": 0.0,
+        "recall_image": 0.4901185770750988
+      },
+      "overall": {
+        "images": 861,
+        "positive_images": 253,
+        "negative_images": 608,
+        "flagged": 130,
+        "false_positive": 6,
+        "true_positive": 124,
+        "precision_image": 0.9538461538461539,
+        "recall_image": 0.4901185770750988,
+        "f1_image": 0.6475195822454308,
+        "fpr": 0.009868421052631578
+      }
+    },
+    "test_standard": {
+      "hard_neg": {
+        "images": 116,
+        "flagged": 0,
+        "false_positive": 0,
+        "true_positive": 0,
+        "flag_rate": 0.0,
+        "fpr": 0.0,
+        "recall_image": 0.0
+      },
+      "in_domain_neg": {
+        "images": 275,
+        "flagged": 7,
+        "false_positive": 7,
+        "true_positive": 0,
+        "flag_rate": 0.025454545454545455,
+        "fpr": 0.025454545454545455,
+        "recall_image": 0.0
+      },
+      "out_domain_neg": {
+        "images": 218,
+        "flagged": 0,
+        "false_positive": 0,
+        "true_positive": 0,
+        "flag_rate": 0.0,
+        "fpr": 0.0,
+        "recall_image": 0.0
+      },
+      "positive": {
+        "images": 237,
+        "flagged": 124,
+        "false_positive": 0,
+        "true_positive": 124,
+        "flag_rate": 0.5232067510548524,
+        "fpr": 0.0,
+        "recall_image": 0.5232067510548524
+      },
+      "overall": {
+        "images": 846,
+        "positive_images": 237,
+        "negative_images": 609,
+        "flagged": 131,
+        "false_positive": 7,
+        "true_positive": 124,
+        "precision_image": 0.9465648854961832,
+        "recall_image": 0.5232067510548524,
+        "f1_image": 0.673913043478261,
+        "fpr": 0.011494252873563218
+      }
+    },
+    "test_robustness": {
+      "hard_neg": {
+        "images": 110,
+        "flagged": 0,
+        "false_positive": 0,
+        "true_positive": 0,
+        "flag_rate": 0.0,
+        "fpr": 0.0,
+        "recall_image": 0.0
+      },
+      "in_domain_neg": {
+        "images": 319,
+        "flagged": 8,
+        "false_positive": 8,
+        "true_positive": 0,
+        "flag_rate": 0.025078369905956112,
+        "fpr": 0.025078369905956112,
+        "recall_image": 0.0
+      },
+      "out_domain_neg": {
+        "images": 218,
+        "flagged": 0,
+        "false_positive": 0,
+        "true_positive": 0,
+        "flag_rate": 0.0,
+        "fpr": 0.0,
+        "recall_image": 0.0
+      },
+      "positive": {
+        "images": 210,
+        "flagged": 103,
+        "false_positive": 0,
+        "true_positive": 103,
+        "flag_rate": 0.49047619047619045,
+        "fpr": 0.0,
+        "recall_image": 0.49047619047619045
+      },
+      "overall": {
+        "images": 857,
+        "positive_images": 210,
+        "negative_images": 647,
+        "flagged": 111,
+        "false_positive": 8,
+        "true_positive": 103,
+        "precision_image": 0.9279279279279279,
+        "recall_image": 0.49047619047619045,
+        "f1_image": 0.6417445482866043,
+        "fpr": 0.012364760432766615
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-Dưới đây là kế hoạch cụ thể để nâng bài RIVF hiện tại thành một nghiên cứu mạnh hơn, khai thác tối đa dataset **11.7k ảnh** của bạn. Mục tiêu không nên chỉ là “mAP cao hơn”, mà là chứng minh hệ thống **robust với in-domain negatives, hard negatives, object nhỏ/mảnh, biến dạng phối cảnh và out-of-domain content**.
+Dưới đây là kế hoạch cụ thể để nâng bài RIVF hiện tại thành một nghiên cứu mạnh hơn, khai thác tối đa dataset **11 ảnh** của bạn. Mục tiêu không nên chỉ là “mAP cao hơn”, mà là chứng minh hệ thống **robust với in-domain negatives, hard negatives, object nhỏ/mảnh, biến dạng phối cảnh và out-of-domain content**.
 
 Bài gốc đang có nền tảng tốt: dataset cũ gồm **836 ảnh**, chia 752 train / 84 validation, dùng Faster R-CNN + DINOv2 KD với hai loss `L1` và `Lirm`, đạt **58.4% mAP / 66.2% AR**, cao hơn Faster R-CNN ResNet-50 baseline **52.2% mAP / 58.8% AR**.   Kế hoạch mới nên phát triển từ nền đó nhưng nâng cấp cả **dataset, method, evaluation protocol, ablation và error analysis**.
 
@@ -24,7 +24,7 @@ Mà nên viết:
 
 Paper mới nên có 4 đóng góp:
 
-1. **Large-scale domain-aware dataset**: 11.7k ảnh, gồm positive, in-domain negative, out-domain negative, synthetic positive và hard negative.
+1. **Large-scale domain-aware dataset**: 11k ảnh, gồm positive, in-domain negative, out-domain negative, synthetic positive và hard negative.
 2. **Robust evaluation protocol**: đánh giá riêng theo positive, in-domain negative, out-domain negative, hard negative, small-object subset, distorted/perspective subset.
 3. **Hard-negative-aware learning**: sampling hoặc loss để giảm nhầm sông/ngòi/đường xá/đường biên giống nine-dash line.
 4. **Improved DINOv2 distillation**: mở rộng `L1 + IRM` cũ thành positive alignment + relational distillation + negative contrastive distillation.
@@ -38,7 +38,7 @@ Paper mới nên có 4 đóng góp:
 Bạn nên tổ chức dataset thành các nhóm rõ ràng:
 
 ```text
-Dataset 11.7k
+Dataset 11k
 ├── Positive real: 2.3k
 │   └── ảnh thật có nine-dash line, có bbox annotation
 │
@@ -48,7 +48,7 @@ Dataset 11.7k
 ├── Negative out-domain: 2.1k
 │   └── ảnh không liên quan bản đồ, tài liệu, giao diện, ảnh thường
 │
-├── Synthetic positive: 3k2 (train-only)
+├── Synthetic positive: 2k3 (train-only)
 │   └── positive được biến đổi phối cảnh, xoay, crop, blur, compression
 │
 └── Hard negative: 1k2 (train-only hoặc test riêng)
@@ -267,7 +267,7 @@ Mình khuyên:
 
 ```text
 Seeds: 3 seeds nếu đủ tài nguyên
-Epochs: 50 hoặc 100, tùy dataset và model
+Epochs: 20 hoặc 30, tùy dataset và model
 Save best checkpoint theo validation mAP hoặc validation recall@fixed-FPR
 ```
 
@@ -501,7 +501,7 @@ thin object detection
 
 ## Experiment 1 — Dataset scale effect
 
-Mục tiêu: chứng minh dataset 11.7k có giá trị hơn dataset cũ.
+Mục tiêu: chứng minh dataset 11k có giá trị hơn dataset cũ.
 
 Chạy cùng một model trên các subset:
 
@@ -510,7 +510,7 @@ Chạy cùng một model trên các subset:
 | 836 old dataset |     |          |    |        |          |
 | 2k subset       |     |          |    |        |          |
 | 5k subset       |     |          |    |        |          |
-| 11.7k full      |     |          |    |        |          |
+| 11k full        |     |          |    |        |          |
 
 Kết luận kỳ vọng:
 
@@ -899,7 +899,7 @@ comprehensive robustness benchmark
 
 ## Section 2 — Dataset
 
-Mô tả dataset 11.7k:
+Mô tả dataset 11k:
 
 ```text
 collection
@@ -1133,7 +1133,7 @@ Kế hoạch tốt nhất là biến bài mới thành một nghiên cứu về:
 Robust small/thin object detection under domain-specific hard negatives
 ```
 
-Dataset 11.7k của bạn có giá trị lớn nhất ở **negative structure**, không chỉ ở số lượng ảnh. Vì vậy các kết quả quan trọng nhất không chỉ là:
+Dataset 11k của bạn có giá trị lớn nhất ở **negative structure**, không chỉ ở số lượng ảnh. Vì vậy các kết quả quan trọng nhất không chỉ là:
 
 ```text
 mAP tăng bao nhiêu?

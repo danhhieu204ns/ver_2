@@ -1,0 +1,43 @@
+{
+  "run_dir": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310",
+  "architecture": "faster_rcnn_r50_fpn",
+  "seed": 0,
+  "best_map": 0.5625331997871399,
+  "best_recall_at_fpr": 0.4901185770750988,
+  "best_map_checkpoint": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310/best_map.pth",
+  "best_recall_at_fpr_checkpoint": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310/best_recall_at_fpr.pth",
+  "protocol": {
+    "architecture": "faster_rcnn_r50_fpn",
+    "image_root": "data",
+    "train_ann": "data/audit/coco/train.json",
+    "val_ann": "data/audit/coco/val.json",
+    "test_ann": "data/audit/coco/test_standard.json",
+    "test_robustness_ann": "data/audit/coco/test_robustness.json",
+    "num_classes": 2,
+    "epochs": 1,
+    "batch_size": 8,
+    "num_workers": 4,
+    "lr": 0.0001,
+    "weight_decay": 0.0001,
+    "lr_schedule": "cosine",
+    "step_size": 30,
+    "gamma": 0.1,
+    "min_size": 960,
+    "max_size": 960,
+    "no_pretrained": false,
+    "seed": 0,
+    "deterministic": false,
+    "target_val_fpr": 0.01,
+    "run_name": "baseline_faster_rcnn_r50_fpn_seed0",
+    "output_dir": "results/stage2_baselines/torchvision",
+    "export_preds": true
+  },
+  "best_map_exports": {
+    "prediction_files": {
+      "val": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310/val_predictions.json",
+      "test_standard": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310/test_standard_predictions.json",
+      "test_robustness": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310/test_robustness_predictions.json"
+    },
+    "image_metrics": "results/stage2_baselines/torchvision/baseline_faster_rcnn_r50_fpn_seed0_20260515_104310/image_level_metrics.json"
+  }
+}

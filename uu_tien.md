@@ -20,3 +20,19 @@ Cẩn thận với L_neg_contrast: nếu chỉ tính trên embedding DINOv2 froz
 Ablation tối thiểu cho paper
 Chỉ cần đủ mạnh:
 dataset ablation, loss ablation, FPR-in/FPR-hard, AP_small, qualitative FP/FN.
+
+Runner Giai đoạn 2
+Dùng runner mới, dry-run mặc định. Mặc định runner sinh command cho toàn bộ baseline Giai đoạn 2: Faster R-CNN R50/R101, Cascade R-CNN, YOLOv8/9/11 s/m, RetinaNet, FCOS, RT-DETR R18/R50, Deformable DETR, DETR R50, old DINOv2 KD.
+
+```bash
+python code/run_stage2_baselines.py --seeds 0 --epochs 50
+```
+
+Chạy thật khi đã kiểm tra command:
+
+```bash
+python code/run_stage2_baselines.py --seeds 0 --epochs 50 --run
+```
+
+Nếu đủ tài nguyên, thêm `--seeds 0 1 2`. YOLO cần `ultralytics`; Cascade R-CNN cần MMDetection (`mmdet/mmcv/mmengine`). DETR/Deformable DETR/RT-DETR dùng backend HuggingFace `transformers`.
+
