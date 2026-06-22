@@ -598,7 +598,7 @@ def main() -> None:
         save_checkpoint(args.output_dir / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, val_metrics, args)
         map_value = val_metrics.get("mAP")
         current_map = float(map_value) if map_value is not None else -1.0
-        if current_map > best_map:
+        if val_metrics and current_map > best_map:
             best_map = current_map
             save_checkpoint(best_checkpoint, model, optimizer, scheduler, epoch, val_metrics, args)
 

@@ -229,7 +229,14 @@ def roi_box_features(
     if total_boxes == 0:
         return torch.empty((0, in_features), device=device)
     pooled = model.roi_heads.box_roi_pool(features, boxes_by_image, image_sizes)
-    return model.roi_heads.box_head(pooled)
+    box_features = model.roi_heads.box_head(pooled)
+    if box_features.shape[1] != in_features:
+        raise RuntimeError(
+            f"roi_box_features shape mismatch: box_head output dim {box_features.shape[1]} "
+            f"!= hnsard_projection.in_features {in_features}. "
+            "Ensure add_projection_head() is called after the detector is fully constructed."
+        )
+    return box_features
 
 
 def scale_weights_for_boxes(

@@ -646,6 +646,17 @@ def build_detection_metrics(
     metrics["input_predictions"] = len(predictions)
     metrics["detections"] = len(clean_predictions)
     metrics["invalid_predictions_dropped"] = len(predictions) - len(clean_predictions)
+    dropped = int(metrics["invalid_predictions_dropped"])
+    if dropped > 0:
+        print(
+            "WARNING: "
+            + str(dropped)
+            + " prediction(s) were invalid and dropped before evaluation"
+            + f" (split={split}). Non-finite scores, out-of-range values,"
+            + " or malformed bboxes detected."
+            + " A valid run should have zero dropped predictions.",
+            flush=True,
+        )
     metrics["fppi_threshold"] = fixed_threshold
     metrics["false_positives_on_negatives"] = fp_metrics
     metrics["predictions_above_fppi_threshold_by_group"] = group_prediction_counts
