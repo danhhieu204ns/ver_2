@@ -1,3 +1,9 @@
+python -m pip install -r requirements.txt
+bash scripts/run_all_baselines.sh
+bash scripts/run_dataset_ablation.sh
+bash scripts/run_loss_ablation.sh
+python scripts/check_experiment_protocol.py
+
 # Kế hoạch cuối cùng: HN-SARD cho Nine-Dash Line Detection
 
 ## 0. Định vị lại bài báo
