@@ -609,6 +609,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-test-images", default=None, type=int)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-final-eval", action="store_true")
+    parser.add_argument(
+        "--patience",
+        default=15,
+        type=int,
+        help="Early-stopping patience in epochs (0 = disabled).",
+    )
 
     parser.add_argument("--teacher-backend", default="transformers", choices=("none", "dummy", "transformers"))
     parser.add_argument("--teacher-model", default="facebook/dinov2-small")
@@ -796,6 +802,7 @@ def main() -> None:
         return
 
     best_map = -1.0
+    no_improve = 0  # consecutive eval epochs without val mAP improvement
     best_checkpoint = args.output_dir / "checkpoints" / "best.pt"
     history_path = args.output_dir / "metrics_history.jsonl"
     if history_path.exists() and not args.resume:
@@ -835,9 +842,20 @@ def main() -> None:
         save_checkpoint(args.output_dir / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, val_metrics, args)
         map_value = val_metrics.get("mAP")
         current_map = float(map_value) if map_value is not None else -1.0
-        if val_metrics and current_map > best_map:
-            best_map = current_map
-            save_checkpoint(best_checkpoint, model, optimizer, scheduler, epoch, val_metrics, args)
+        if val_metrics:
+            if current_map > best_map:
+                best_map = current_map
+                no_improve = 0
+                save_checkpoint(best_checkpoint, model, optimizer, scheduler, epoch, val_metrics, args)
+            else:
+                no_improve += 1
+            if args.patience > 0 and no_improve >= args.patience:
+                print(
+                    f"Early stopping at epoch {epoch}: val mAP did not improve "
+                    f"for {no_improve} consecutive eval epoch(s) (patience={args.patience}).",
+                    flush=True,
+                )
+                break
 
     if not best_checkpoint.exists():
         save_checkpoint(best_checkpoint, model, optimizer, scheduler, args.epochs, {}, args)

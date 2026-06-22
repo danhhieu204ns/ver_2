@@ -27,6 +27,7 @@ DRY_RUN="${DRY_RUN:-0}"
 RUN_SUMMARY="${RUN_SUMMARY:-1}"
 COLLECT_ERRORS="${COLLECT_ERRORS:-1}"
 SKIP_COMPLETED="${SKIP_COMPLETED:-0}"
+PATIENCE_ABLATION="${PATIENCE_ABLATION:-$PATIENCE}"
 NO_PRETRAINED="${NO_PRETRAINED:-0}"
 MAX_TRAIN_IMAGES="${MAX_TRAIN_IMAGES:-}"
 MAX_VAL_IMAGES="${MAX_VAL_IMAGES:-}"
@@ -86,6 +87,7 @@ for variant in "${variants_to_run[@]}"; do
     --aug-hue "$AUG_HUE"
     --protocol-name "$EXPERIMENT_PROTOCOL"
     --eval-splits "${EVAL_SPLIT_ARRAY[@]}"
+    --patience "$PATIENCE_ABLATION"
   )
 
   if [[ -n "$MAX_TRAIN_IMAGES" ]]; then

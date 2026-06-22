@@ -44,4 +44,5 @@ fi
   --workers "$WORKERS" \
   --seed "$SEED" \
   --eval-every "$DETR_EVAL_EVERY" \
-  --print-freq "$PRINT_FREQ"
+  --print-freq "$PRINT_FREQ" \
+  --patience "$PATIENCE"

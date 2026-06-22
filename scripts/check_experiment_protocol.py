@@ -22,6 +22,7 @@ EXPECTED: dict[str, Any] = {
     "aug_brightness": 0.2,
     "aug_saturation": 0.2,
     "aug_hue": 0.015,
+    "patience": 15,
 }
 
 
@@ -38,6 +39,7 @@ ALIASES: dict[str, tuple[str, ...]] = {
     "aug_brightness": ("aug_brightness",),
     "aug_saturation": ("aug_saturation",),
     "aug_hue": ("aug_hue",),
+    "patience": ("patience",),
 }
 
 

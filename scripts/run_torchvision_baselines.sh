@@ -62,6 +62,7 @@ run_torchvision_baseline() {
     --seed "$SEED" \
     --eval-every "$EVAL_EVERY" \
     --print-freq "$PRINT_FREQ" \
+    --patience "$PATIENCE" \
     "${extra_args[@]}"
 }
 

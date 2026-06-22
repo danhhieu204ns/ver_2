@@ -99,6 +99,7 @@ for model_path in "${models_to_run[@]}"; do
     close_mosaic=0 \
     project="$YOLO_PROJECT" \
     name="$name" \
+    patience="$PATIENCE" \
     exist_ok=True
 
   "$YOLO" detect val \
