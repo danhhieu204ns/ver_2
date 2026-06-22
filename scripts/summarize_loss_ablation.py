@@ -22,6 +22,7 @@ FIELDS = [
     "variant",
     "method",
     "split",
+    "protocol_name",
     "AP",
     "AP50",
     "AP75",
@@ -50,6 +51,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Root containing one run directory per loss-ablation variant.",
     )
+    parser.add_argument("--allow-mixed-protocols", action="store_true", help="Allow missing or mixed protocol_name values.")
     parser.add_argument(
         "--output-dir",
         default=Path("results/hnsard_loss_ablation/tables"),
@@ -128,6 +130,7 @@ def collect_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
             "variant": variant,
             "method": method,
             "split": args.split,
+            "protocol_name": config.get("protocol_name"),
             "metrics_path": str(metrics_path),
             "lambda_pos": config.get("lambda_pos"),
             "lambda_con": config.get("lambda_con"),
@@ -176,6 +179,9 @@ def render_markdown(rows: list[dict[str, Any]]) -> str:
 def main() -> None:
     args = parse_args()
     rows = collect_rows(args)
+    protocols = {row.get("protocol_name") for row in rows if row.get("metrics_path")}
+    if rows and not args.allow_mixed_protocols and (None in protocols or len(protocols) != 1):
+        raise RuntimeError(f"Missing or mixed experiment protocols: {sorted(map(str, protocols))}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = args.output_dir / f"loss_ablation_{args.split}.csv"

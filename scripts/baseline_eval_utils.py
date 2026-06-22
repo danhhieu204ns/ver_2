@@ -13,8 +13,12 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import numpy as np
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
+try:
+    from pycocotools.coco import COCO
+    from pycocotools.cocoeval import COCOeval
+except ModuleNotFoundError:  # Image-level metric tests do not require COCO.
+    COCO = None  # type: ignore[assignment,misc]
+    COCOeval = None  # type: ignore[assignment,misc]
 
 
 CLASS_ID = 1
@@ -26,6 +30,11 @@ RELATIVE_SCALE_BUCKETS = {
     "medium": (0.05, 0.25),
     "large": (0.25, math.inf),
 }
+
+
+def require_pycocotools() -> None:
+    if COCO is None or COCOeval is None:
+        raise ModuleNotFoundError("pycocotools is required for COCO object-detection metrics; install requirements.txt")
 
 
 def clip(value: float, low: float, high: float) -> float:
@@ -129,7 +138,9 @@ def valid_prediction(prediction: dict[str, Any], valid_image_ids: set[int]) -> d
 
     if image_id not in valid_image_ids or category_id != CLASS_ID or len(bbox) != 4:
         return None
-    if bbox[2] <= 0 or bbox[3] <= 0:
+    if not math.isfinite(score) or not 0.0 <= score <= 1.0:
+        return None
+    if any(not math.isfinite(value) for value in bbox) or bbox[2] <= 0 or bbox[3] <= 0:
         return None
     return {"image_id": image_id, "category_id": CLASS_ID, "bbox": bbox, "score": score}
 
@@ -145,6 +156,7 @@ def sanitize_predictions(predictions: Iterable[dict[str, Any]], coco_ids: list[i
 
 
 def coco_dataset_from_records(records: list[dict[str, Any]], coco_ids: list[int] | None = None) -> COCO:
+    require_pycocotools()
     if coco_ids is None:
         coco_ids = list(range(1, len(records) + 1))
 
@@ -193,7 +205,7 @@ def coco_dataset_from_records(records: list[dict[str, Any]], coco_ids: list[int]
     return coco
 
 
-def coco_metrics_from_stats(stats: np.ndarray) -> dict[str, float]:
+def coco_metrics_from_stats(stats: np.ndarray) -> dict[str, float | None]:
     names = [
         "mAP",
         "mAP50",
@@ -208,14 +220,47 @@ def coco_metrics_from_stats(stats: np.ndarray) -> dict[str, float]:
         "AR_medium",
         "AR_large",
     ]
-    return {name: float(value) for name, value in zip(names, stats.tolist())}
+    return {name: (float(value) if float(value) >= 0.0 else None) for name, value in zip(names, stats.tolist())}
 
 
-def run_coco_eval(records: list[dict[str, Any]], coco_ids: list[int], predictions: list[dict[str, Any]]) -> dict[str, float]:
+def empty_coco_metrics(coco_gt: COCO) -> dict[str, float | None]:
+    """COCO metrics for zero detections, preserving unavailable area buckets."""
+
+    areas = [float(annotation["area"]) for annotation in coco_gt.dataset["annotations"]]
+    if not areas:
+        return {name: None for name in coco_metrics_from_stats(np.zeros(12)).keys()}
+
+    has_small = any(area <= 32.0**2 for area in areas)
+    has_medium = any(32.0**2 <= area <= 96.0**2 for area in areas)
+    has_large = any(area >= 96.0**2 for area in areas)
+    return {
+        "mAP": 0.0,
+        "mAP50": 0.0,
+        "mAP75": 0.0,
+        "mAP_small": 0.0 if has_small else None,
+        "mAP_medium": 0.0 if has_medium else None,
+        "mAP_large": 0.0 if has_large else None,
+        "AR1": 0.0,
+        "AR10": 0.0,
+        "AR100": 0.0,
+        "AR_small": 0.0 if has_small else None,
+        "AR_medium": 0.0 if has_medium else None,
+        "AR_large": 0.0 if has_large else None,
+    }
+
+
+def run_coco_eval(
+    records: list[dict[str, Any]],
+    coco_ids: list[int],
+    predictions: list[dict[str, Any]],
+) -> dict[str, float | None]:
+    require_pycocotools()
+    if len(records) != len(coco_ids) or len(set(coco_ids)) != len(coco_ids):
+        raise ValueError("records and coco_ids must have equal lengths and unique COCO image IDs")
     coco_gt = coco_dataset_from_records(records, coco_ids)
     gt_count = len(coco_gt.dataset["annotations"])
     if not predictions or gt_count == 0:
-        return coco_metrics_from_stats(np.zeros(12, dtype=np.float64))
+        return empty_coco_metrics(coco_gt)
 
     with contextlib.redirect_stdout(io.StringIO()):
         coco_dt = coco_gt.loadRes(predictions)
@@ -236,6 +281,14 @@ def bbox_area_ratio(obj: dict[str, Any], record: dict[str, Any]) -> float | None
     return ((x2 - x1) * (y2 - y1)) / image_area
 
 
+def valid_object_count(record: dict[str, Any]) -> int:
+    return sum(
+        bbox_xywh_to_xyxy(obj.get("bbox"), record["width"], record["height"]) is not None
+        for obj in record["objects"]
+        if isinstance(obj, dict)
+    )
+
+
 def scale_bucket_for_object(obj: dict[str, Any], record: dict[str, Any]) -> str | None:
     ratio = bbox_area_ratio(obj, record)
     if ratio is None:
@@ -244,6 +297,30 @@ def scale_bucket_for_object(obj: dict[str, Any], record: dict[str, Any]) -> str 
         if low <= ratio < high:
             return name
     return None
+
+
+def predictions_for_scale_bucket(
+    records: list[dict[str, Any]],
+    coco_ids: list[int],
+    predictions: list[dict[str, Any]],
+    bucket: str,
+) -> list[dict[str, Any]]:
+    """Keep detections whose clipped relative area belongs to the bucket."""
+
+    record_by_id = dict(zip(coco_ids, records))
+    filtered: list[dict[str, Any]] = []
+    for prediction in predictions:
+        record = record_by_id[int(prediction["image_id"])]
+        box = bbox_xywh_to_xyxy(prediction["bbox"], record["width"], record["height"])
+        image_area = float(record["width"] * record["height"])
+        if box is None or image_area <= 0:
+            continue
+        x1, y1, x2, y2 = box
+        ratio = ((x2 - x1) * (y2 - y1)) / image_area
+        low, high = RELATIVE_SCALE_BUCKETS[bucket]
+        if low <= ratio < high:
+            filtered.append(prediction)
+    return filtered
 
 
 def records_for_scale_bucket(records: list[dict[str, Any]], bucket: str) -> list[dict[str, Any]]:
@@ -273,13 +350,15 @@ def relative_scale_metrics(
         object_count = sum(len(record["objects"]) for record in bucket_records)
         image_count = sum(1 for record in bucket_records if record["objects"])
         if object_count == 0:
-            metrics: dict[str, Any] = {"objects": 0, "positive_images": 0}
+            metrics: dict[str, Any] = {"objects": 0, "positive_images": 0, "detections": 0}
             for name in ("mAP", "mAP50", "mAP75", "AR100"):
                 metrics[name] = None
         else:
-            metrics = run_coco_eval(bucket_records, coco_ids, predictions)
+            bucket_predictions = predictions_for_scale_bucket(records, coco_ids, predictions, bucket)
+            metrics = run_coco_eval(bucket_records, coco_ids, bucket_predictions)
             metrics["objects"] = object_count
             metrics["positive_images"] = image_count
+            metrics["detections"] = len(bucket_predictions)
 
         nested[bucket] = metrics
         flat[f"mAP_{bucket}_rel"] = metrics.get("mAP")
@@ -315,8 +394,8 @@ def image_scores_from_predictions(
                 "group": record["group"],
                 "file_name": record["file_name"],
                 "image_path": str(record["image_path"]),
-                "label": 1 if record["objects"] else 0,
-                "object_count": len(record["objects"]),
+                "label": 1 if valid_object_count(record) else 0,
+                "object_count": valid_object_count(record),
                 "score": max_scores[coco_id],
                 "detections": detection_counts[coco_id],
             }
@@ -331,7 +410,9 @@ def binary_counts(rows: list[dict[str, Any]], threshold: float) -> dict[str, Any
 
     for row in rows:
         label = int(row["label"])
-        predicted = float(row["score"]) >= threshold
+        # A no-detection image has score 0 for ranking, but is never positive at
+        # threshold 0 because there is no actual detection to threshold.
+        predicted = int(row.get("detections", 0)) > 0 and float(row["score"]) >= threshold
         if label:
             if predicted:
                 tp += 1
@@ -408,15 +489,25 @@ def average_precision(rows: list[dict[str, Any]]) -> float | None:
     if positives == 0:
         return None
 
-    ordered = sorted(rows, key=lambda row: float(row["score"]), reverse=True)
+    # Aggregate equal-score samples before integrating the PR curve. Ranking
+    # positives ahead of negatives inside a tie would make AP depend on file order.
+    counts_by_score: dict[float, list[int]] = {}
+    for row in rows:
+        score = float(row["score"])
+        counts = counts_by_score.setdefault(score, [0, 0])
+        counts[0] += int(row["label"] == 1)
+        counts[1] += 1
+
     true_positives = 0
-    precision_sum = 0.0
-    for rank, row in enumerate(ordered, start=1):
-        if int(row["label"]) != 1:
-            continue
-        true_positives += 1
-        precision_sum += true_positives / rank
-    return precision_sum / positives
+    predicted_positives = 0
+    ap = 0.0
+    for score in sorted(counts_by_score, reverse=True):
+        positive_count, total_count = counts_by_score[score]
+        true_positives += positive_count
+        predicted_positives += total_count
+        precision = true_positives / predicted_positives
+        ap += (positive_count / positives) * precision
+    return ap
 
 
 def operation_at_target_tpr(rows: list[dict[str, Any]], target_tpr: float) -> dict[str, Any]:
@@ -502,7 +593,7 @@ def false_positive_detection_metrics(
     threshold: float,
 ) -> tuple[dict[str, Any], dict[str, int]]:
     record_by_id = dict(zip(coco_ids, records))
-    negative_images_by_group = Counter(record["group"] for record in records if not record["objects"])
+    negative_images_by_group = Counter(record["group"] for record in records if not valid_object_count(record))
     fp_by_group: Counter[str] = Counter()
     positive_predictions_by_group: Counter[str] = Counter()
 
@@ -511,7 +602,7 @@ def false_positive_detection_metrics(
             continue
         record = record_by_id[int(prediction["image_id"])]
         positive_predictions_by_group[record["group"]] += 1
-        if not record["objects"]:
+        if not valid_object_count(record):
             fp_by_group[record["group"]] += 1
 
     total_negative_images = sum(negative_images_by_group.values())
@@ -539,6 +630,8 @@ def build_detection_metrics(
     split: str,
     fixed_threshold: float,
 ) -> dict[str, Any]:
+    if len(records) != len(coco_ids) or len(set(coco_ids)) != len(coco_ids):
+        raise ValueError("records and coco_ids must have equal lengths and unique COCO image IDs")
     clean_predictions = sanitize_predictions(predictions, coco_ids)
     metrics: dict[str, Any] = run_coco_eval(records, coco_ids, clean_predictions)
     scale_nested, scale_flat = relative_scale_metrics(records, coco_ids, clean_predictions)
@@ -549,7 +642,10 @@ def build_detection_metrics(
     metrics.update(image_flat)
     metrics["split"] = split
     metrics["images"] = len(records)
+    metrics["ground_truth_objects"] = sum(valid_object_count(record) for record in records)
+    metrics["input_predictions"] = len(predictions)
     metrics["detections"] = len(clean_predictions)
+    metrics["invalid_predictions_dropped"] = len(predictions) - len(clean_predictions)
     metrics["fppi_threshold"] = fixed_threshold
     metrics["false_positives_on_negatives"] = fp_metrics
     metrics["predictions_above_fppi_threshold_by_group"] = group_prediction_counts

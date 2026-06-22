@@ -15,16 +15,22 @@ from typing import Any
 import numpy as np
 import torch
 from PIL import Image
-from pycocotools.coco import COCO
 from torch.utils.data import DataLoader, Dataset
-from torchvision.models import ResNet101_Weights, VGG16_Weights, resnet101
-from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights, fasterrcnn_resnet50_fpn, ssd300_vgg16
+from torchvision.models import ResNet101_Weights, resnet101
+from torchvision.models.detection import (
+    FasterRCNN_ResNet50_FPN_Weights,
+    SSD300_VGG16_Weights,
+    fasterrcnn_resnet50_fpn,
+    ssd300_vgg16,
+)
 from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor
 from torchvision.models.detection.faster_rcnn import FasterRCNN, FastRCNNPredictor
+from torchvision.models.detection.ssd import SSDClassificationHead
 from torchvision.ops import misc as misc_nn_ops
 from torchvision.transforms import functional as F
 
 from baseline_eval_utils import build_detection_metrics, write_image_scores_csv
+from detection_augmentation import DetectionAugmentation, augment_pil_detection
 
 
 CLASS_ID = 1
@@ -121,12 +127,18 @@ def bbox_xywh_to_xyxy(bbox: Any, image_width: int, image_height: int) -> tuple[f
 
 
 class NineDashDetectionDataset(Dataset):
-    def __init__(self, data_root: Path, split: str, max_images: int | None = None, hflip_prob: float = 0.0) -> None:
+    def __init__(
+        self,
+        data_root: Path,
+        split: str,
+        max_images: int | None = None,
+        augmentation: DetectionAugmentation | None = None,
+    ) -> None:
         if split not in SPLITS:
             raise ValueError(f"Unsupported split: {split}")
         self.data_root = data_root
         self.split = split
-        self.hflip_prob = hflip_prob
+        self.augmentation = augmentation or DetectionAugmentation()
         self.records = limit_records(load_records(data_root, split), max_images)
         self.coco_ids = list(range(1, len(self.records) + 1))
 
@@ -153,9 +165,8 @@ class NineDashDetectionDataset(Dataset):
             labels.append(CLASS_ID)
             areas.append((x2 - x1) * (y2 - y1))
 
-        if self.split == "train" and self.hflip_prob > 0 and random.random() < self.hflip_prob:
-            image = F.hflip(image)
-            boxes = [(image_width - x2, y1, image_width - x1, y2) for x1, y1, x2, y2 in boxes]
+        if self.split == "train":
+            image, boxes = augment_pil_detection(image, boxes, self.augmentation)
 
         image_tensor = F.to_tensor(image)
         if boxes:
@@ -178,52 +189,6 @@ class NineDashDetectionDataset(Dataset):
 
     def record_for_coco_id(self, coco_id: int) -> dict[str, Any]:
         return self.records[self.coco_ids.index(coco_id)]
-
-    def to_coco(self) -> COCO:
-        dataset: dict[str, Any] = {
-            "info": {"description": "nine-dash-line baseline dataset"},
-            "licenses": [],
-            "images": [],
-            "annotations": [],
-            "categories": [{"id": CLASS_ID, "name": CLASS_NAME}],
-        }
-        annotation_id = 1
-        for index, record in enumerate(self.records):
-            coco_id = self.coco_ids[index]
-            dataset["images"].append(
-                {
-                    "id": coco_id,
-                    "file_name": f"{record['group']}/{record['file_name']}",
-                    "width": record["width"],
-                    "height": record["height"],
-                }
-            )
-            for obj in record["objects"]:
-                if not isinstance(obj, dict):
-                    continue
-                box = bbox_xywh_to_xyxy(obj.get("bbox"), record["width"], record["height"])
-                if box is None:
-                    continue
-                x1, y1, x2, y2 = box
-                width = x2 - x1
-                height = y2 - y1
-                dataset["annotations"].append(
-                    {
-                        "id": annotation_id,
-                        "image_id": coco_id,
-                        "category_id": CLASS_ID,
-                        "bbox": [x1, y1, width, height],
-                        "area": width * height,
-                        "iscrowd": 0,
-                    }
-                )
-                annotation_id += 1
-
-        coco = COCO()
-        coco.dataset = dataset
-        coco.createIndex()
-        return coco
-
 
 def collate_fn(batch: list[tuple[torch.Tensor, dict[str, torch.Tensor]]]) -> tuple[list[torch.Tensor], list[dict[str, torch.Tensor]]]:
     images, targets = zip(*batch)
@@ -264,15 +229,20 @@ def create_fasterrcnn_r101(pretrained: bool, min_size: int, max_size: int, score
 
 
 def create_ssd300_vgg16(pretrained: bool, score_threshold: float) -> torch.nn.Module:
-    # Custom num_classes prevents directly loading the COCO detection head, so
-    # this baseline uses an ImageNet-pretrained VGG16 backbone by default.
-    weights_backbone = VGG16_Weights.IMAGENET1K_FEATURES if pretrained else None
-    return ssd300_vgg16(
-        weights=None,
-        weights_backbone=weights_backbone,
-        num_classes=2,
-        score_thresh=score_threshold,
-    )
+    if not pretrained:
+        return ssd300_vgg16(
+            weights=None,
+            weights_backbone=None,
+            num_classes=2,
+            score_thresh=score_threshold,
+        )
+
+    model = ssd300_vgg16(weights=SSD300_VGG16_Weights.DEFAULT, score_thresh=score_threshold)
+    old_head = model.head.classification_head
+    in_channels = [module.in_channels for module in old_head.module_list]
+    num_anchors = model.anchor_generator.num_anchors_per_location()
+    model.head.classification_head = SSDClassificationHead(in_channels, num_anchors, num_classes=2)
+    return model
 
 
 def create_model(model_name: str, pretrained: bool, min_size: int, max_size: int, score_threshold: float) -> torch.nn.Module:
@@ -471,10 +441,10 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Directory for checkpoints and metrics.",
     )
-    parser.add_argument("--epochs", default=20, type=int, help="Training epochs.")
-    parser.add_argument("--batch-size", default=4, type=int, help="Training batch size.")
-    parser.add_argument("--eval-batch-size", default=2, type=int, help="Evaluation batch size.")
-    parser.add_argument("--workers", default=4, type=int, help="DataLoader workers.")
+    parser.add_argument("--epochs", default=50, type=int, help="Training epochs.")
+    parser.add_argument("--batch-size", default=8, type=int, help="Training batch size.")
+    parser.add_argument("--eval-batch-size", default=8, type=int, help="Evaluation batch size.")
+    parser.add_argument("--workers", default=8, type=int, help="DataLoader workers.")
     parser.add_argument("--lr", default=0.005, type=float, help="Initial learning rate.")
     parser.add_argument("--momentum", default=0.9, type=float, help="SGD momentum.")
     parser.add_argument("--weight-decay", default=0.0005, type=float, help="SGD weight decay.")
@@ -488,16 +458,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr-gamma", default=0.1, type=float, help="StepLR gamma.")
     parser.add_argument("--min-size", default=800, type=int, help="Faster R-CNN transform min_size. Ignored by SSD.")
     parser.add_argument("--max-size", default=1333, type=int, help="Faster R-CNN transform max_size. Ignored by SSD.")
-    parser.add_argument("--model-score-threshold", default=0.05, type=float, help="Inference score threshold.")
+    parser.add_argument("--model-score-threshold", default=0.001, type=float, help="Low inference threshold retained for COCO/operating-point metrics.")
     parser.add_argument("--fppi-threshold", default=0.25, type=float, help="Score threshold for false-positive-per-image reporting.")
-    parser.add_argument("--hflip-prob", default=0.0, type=float, help="Optional horizontal flip probability for training.")
+    parser.add_argument("--hflip-prob", default=0.5, type=float, help="Training horizontal-flip probability.")
+    parser.add_argument("--aug-brightness", default=0.2, type=float, help="Symmetric training brightness jitter.")
+    parser.add_argument("--aug-saturation", default=0.2, type=float, help="Symmetric training saturation jitter.")
+    parser.add_argument("--aug-hue", default=0.015, type=float, help="Symmetric training hue jitter.")
+    parser.add_argument("--protocol-name", default="canonical_v2", help="Experiment protocol recorded in config.json.")
     parser.add_argument("--seed", default=42, type=int, help="Random seed.")
     parser.add_argument("--print-freq", default=50, type=int, help="Training log frequency in steps.")
     parser.add_argument("--eval-every", default=1, type=int, help="Run validation every N epochs.")
     parser.add_argument(
         "--no-pretrained",
         action="store_true",
-        help="Disable pretrained weights. R50 uses COCO weights by default; R101/SSD use ImageNet backbones by default.",
+        help="Disable pretrained weights. R50 and SSD use COCO detector weights; R101 uses an ImageNet backbone.",
     )
     parser.add_argument("--resume", default=None, type=Path, help="Resume checkpoint.")
     parser.add_argument("--eval-only", default=None, type=Path, help="Only evaluate a checkpoint.")
@@ -520,8 +494,9 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
+    train_augmentation = DetectionAugmentation(args.hflip_prob, args.aug_brightness, args.aug_saturation, args.aug_hue)
     datasets = {
-        "train": NineDashDetectionDataset(args.data_root, "train", args.max_train_images, hflip_prob=args.hflip_prob),
+        "train": NineDashDetectionDataset(args.data_root, "train", args.max_train_images, augmentation=train_augmentation),
         "val": NineDashDetectionDataset(args.data_root, "val", args.max_val_images),
         "test": NineDashDetectionDataset(args.data_root, "test", args.max_test_images),
     }
@@ -589,6 +564,10 @@ def main() -> None:
     history_path = args.output_dir / "metrics_history.jsonl"
     if history_path.exists() and not args.resume:
         history_path.unlink()
+    if not args.resume:
+        # Model/head construction consumes RNG; reset so equivalent fresh runs
+        # share DataLoader, augmentation, RPN, and RoI sampling streams.
+        set_seed(args.seed)
 
     for epoch in range(start_epoch, args.epochs + 1):
         train_metrics = train_one_epoch(
@@ -617,7 +596,8 @@ def main() -> None:
         row = {"epoch": epoch, "lr": optimizer.param_groups[0]["lr"], "train": train_metrics, "val": val_metrics}
         append_jsonl(history_path, row)
         save_checkpoint(args.output_dir / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, val_metrics, args)
-        current_map = float(val_metrics.get("mAP", -1.0))
+        map_value = val_metrics.get("mAP")
+        current_map = float(map_value) if map_value is not None else -1.0
         if current_map > best_map:
             best_map = current_map
             save_checkpoint(best_checkpoint, model, optimizer, scheduler, epoch, val_metrics, args)

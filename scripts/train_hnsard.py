@@ -29,6 +29,7 @@ from train_faster_rcnn_baseline import (
     save_checkpoint,
     set_seed,
 )
+from detection_augmentation import DetectionAugmentation
 
 
 FASTER_RCNN_CHOICES = ("fasterrcnn_r50", "fasterrcnn_r101")
@@ -432,34 +433,40 @@ def hnsard_forward_train(
         raise RuntimeError("HN-SARD losses require a teacher. Use --teacher-backend dummy or transformers.")
 
     if needs_teacher and teacher is not None:
-        raw_pos, positive_teacher_embeddings, positive_regions = positive_distillation_loss(
-            model,
-            teacher,
-            images,
-            targets,
-            transformed_targets,
-            features,
-            transformed_images.image_sizes,
-            args,
-        )
-        teacher_bank.enqueue(positive_teacher_embeddings)
-        if args.lambda_pos > 0:
-            weighted_pos = raw_pos * args.lambda_pos
-            total_loss = total_loss + weighted_pos
-
-        contrastive_active = args.lambda_con > 0 and epoch > args.contrastive_warmup_epochs
-        if contrastive_active:
-            negative_features, hard_negatives = hard_negative_features(
+        # Auxiliary sampling must not advance the detector RNG stream; otherwise
+        # later RPN/RoI samples differ across ablation variants despite one seed.
+        fork_devices = []
+        if device.type == "cuda":
+            fork_devices = [device.index if device.index is not None else torch.cuda.current_device()]
+        with torch.random.fork_rng(devices=fork_devices):
+            raw_pos, positive_teacher_embeddings, positive_regions = positive_distillation_loss(
                 model,
-                features,
-                proposals,
+                teacher,
+                images,
+                targets,
                 transformed_targets,
+                features,
                 transformed_images.image_sizes,
                 args,
             )
-            raw_con = contrastive_loss(model, negative_features, teacher_bank.get(), args)
-            weighted_con = raw_con * args.lambda_con
-            total_loss = total_loss + weighted_con
+            teacher_bank.enqueue(positive_teacher_embeddings)
+            if args.lambda_pos > 0:
+                weighted_pos = raw_pos * args.lambda_pos
+                total_loss = total_loss + weighted_pos
+
+            contrastive_active = args.lambda_con > 0 and epoch > args.contrastive_warmup_epochs
+            if contrastive_active:
+                negative_features, hard_negatives = hard_negative_features(
+                    model,
+                    features,
+                    proposals,
+                    transformed_targets,
+                    transformed_images.image_sizes,
+                    args,
+                )
+                raw_con = contrastive_loss(model, negative_features, teacher_bank.get(), args)
+                weighted_con = raw_con * args.lambda_con
+                total_loss = total_loss + weighted_con
 
     loss_dict["loss_hnsard_pos"] = weighted_pos
     loss_dict["loss_hnsard_con"] = weighted_con
@@ -564,10 +571,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="fasterrcnn_r50", choices=FASTER_RCNN_CHOICES)
     parser.add_argument("--data-root", default=Path("data"), type=Path)
     parser.add_argument("--output-dir", default=Path("results/hnsard/full_hnsard"), type=Path)
-    parser.add_argument("--epochs", default=20, type=int)
-    parser.add_argument("--batch-size", default=4, type=int)
-    parser.add_argument("--eval-batch-size", default=2, type=int)
-    parser.add_argument("--workers", default=4, type=int)
+    parser.add_argument("--epochs", default=50, type=int)
+    parser.add_argument("--batch-size", default=8, type=int)
+    parser.add_argument("--eval-batch-size", default=8, type=int)
+    parser.add_argument("--workers", default=8, type=int)
     parser.add_argument("--lr", default=0.005, type=float)
     parser.add_argument("--momentum", default=0.9, type=float)
     parser.add_argument("--weight-decay", default=0.0005, type=float)
@@ -576,9 +583,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr-gamma", default=0.1, type=float)
     parser.add_argument("--min-size", default=800, type=int)
     parser.add_argument("--max-size", default=1333, type=int)
-    parser.add_argument("--model-score-threshold", default=0.05, type=float)
+    parser.add_argument("--model-score-threshold", default=0.001, type=float)
     parser.add_argument("--fppi-threshold", default=0.25, type=float)
-    parser.add_argument("--hflip-prob", default=0.0, type=float)
+    parser.add_argument("--hflip-prob", default=0.5, type=float)
+    parser.add_argument("--aug-brightness", default=0.2, type=float)
+    parser.add_argument("--aug-saturation", default=0.2, type=float)
+    parser.add_argument("--aug-hue", default=0.015, type=float)
+    parser.add_argument("--protocol-name", default="canonical_v2")
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--print-freq", default=50, type=int)
     parser.add_argument("--eval-every", default=1, type=int)
@@ -680,8 +691,9 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
+    train_augmentation = DetectionAugmentation(args.hflip_prob, args.aug_brightness, args.aug_saturation, args.aug_hue)
     datasets = {
-        "train": NineDashDetectionDataset(args.data_root, "train", args.max_train_images, hflip_prob=args.hflip_prob),
+        "train": NineDashDetectionDataset(args.data_root, "train", args.max_train_images, augmentation=train_augmentation),
         "val": NineDashDetectionDataset(args.data_root, "val", args.max_val_images),
         "test": NineDashDetectionDataset(args.data_root, "test", args.max_test_images),
     }
@@ -727,7 +739,7 @@ def main() -> None:
         return
 
     needs_training_teacher = not args.eval_only and (args.lambda_pos > 0 or args.lambda_con > 0)
-    teacher, teacher_dim = build_teacher(args, device) if needs_training_teacher else (None, args.teacher_dim)
+    teacher_dim = args.teacher_dim
     model = create_model(
         model_name=args.model,
         pretrained=not args.no_pretrained,
@@ -736,6 +748,12 @@ def main() -> None:
         score_threshold=args.model_score_threshold,
     ).to(device)
     add_projection_head(model, teacher_dim, device)
+    teacher, loaded_teacher_dim = build_teacher(args, device) if needs_training_teacher else (None, teacher_dim)
+    if loaded_teacher_dim != teacher_dim:
+        # Recreate only the auxiliary head; the detector was initialized before
+        # loading the teacher so every ablation starts from identical weights.
+        teacher_dim = loaded_teacher_dim
+        add_projection_head(model, teacher_dim, device)
 
     optimizer = torch.optim.SGD(
         [parameter for parameter in model.parameters() if parameter.requires_grad],
@@ -775,6 +793,8 @@ def main() -> None:
     history_path = args.output_dir / "metrics_history.jsonl"
     if history_path.exists() and not args.resume:
         history_path.unlink()
+    if not args.resume:
+        set_seed(args.seed)
 
     for epoch in range(start_epoch, args.epochs + 1):
         train_metrics = train_one_epoch_hnsard(
@@ -806,7 +826,8 @@ def main() -> None:
         row = {"epoch": epoch, "lr": optimizer.param_groups[0]["lr"], "train": train_metrics, "val": val_metrics}
         append_jsonl(history_path, row)
         save_checkpoint(args.output_dir / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, val_metrics, args)
-        current_map = float(val_metrics.get("mAP", -1.0))
+        map_value = val_metrics.get("mAP")
+        current_map = float(map_value) if map_value is not None else -1.0
         if val_metrics and current_map > best_map:
             best_map = current_map
             save_checkpoint(best_checkpoint, model, optimizer, scheduler, epoch, val_metrics, args)

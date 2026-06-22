@@ -33,6 +33,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iou", default=0.7, type=float, help="NMS IoU used by YOLO inference.")
     parser.add_argument("--max-det", default=300, type=int, help="Maximum detections per image.")
     parser.add_argument("--score-threshold", default=0.25, type=float, help="Fixed score threshold for FPPI/FPR reporting.")
+    parser.add_argument("--protocol-name", default="canonical_v2", help="Experiment protocol recorded in config.json.")
+    parser.add_argument("--training-epochs", default=50, type=int, help="Training budget metadata for protocol audits.")
+    parser.add_argument("--training-batch-size", default=8, type=int, help="Training batch metadata for protocol audits.")
+    parser.add_argument("--seed", default=42, type=int, help="Training seed metadata for protocol audits.")
+    parser.add_argument("--hflip-prob", default=0.5, type=float, help="Training augmentation metadata.")
+    parser.add_argument("--aug-brightness", default=0.2, type=float, help="Training augmentation metadata.")
+    parser.add_argument("--aug-saturation", default=0.2, type=float, help="Training augmentation metadata.")
+    parser.add_argument("--aug-hue", default=0.015, type=float, help="Training augmentation metadata.")
     parser.add_argument("--device", default=None, help="Optional Ultralytics device string.")
     parser.add_argument("--workers", default=8, type=int, help="Ultralytics dataloader workers.")
     parser.add_argument("--max-images", default=None, type=int, help="Optional smoke-test image limit per split.")
@@ -99,6 +107,10 @@ def main() -> None:
     args = parse_args()
     model = YOLO(str(args.weights))
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    (args.output_dir / "config.json").write_text(
+        json.dumps(vars(args), default=str, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     final_metrics: dict[str, Any] = {}
 
     for split in args.splits:

@@ -773,10 +773,14 @@ Nếu chỉ muốn chạy full HN-SARD một mình:
   --model fasterrcnn_r50 \
   --data-root data \
   --output-dir results/hnsard/full_hnsard \
-  --epochs 20 \
-  --batch-size 4 \
-  --eval-batch-size 2 \
-  --workers 4 \
+  --epochs 50 \
+  --batch-size 8 \
+  --eval-batch-size 8 \
+  --workers 8 \
+  --hflip-prob 0.5 \
+  --aug-brightness 0.2 \
+  --aug-saturation 0.2 \
+  --aug-hue 0.015 \
   --lambda-pos 0.5 \
   --lambda-con 0.1 \
   --scale-aware \

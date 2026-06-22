@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Canonical protocol shared by baseline comparison and both ablation studies.
+# Architecture-specific optimizers/LRs remain in their runners and are logged.
+
+EXPERIMENT_PROTOCOL="${EXPERIMENT_PROTOCOL:-canonical_v2}"
+EXPERIMENT_EPOCHS="${EXPERIMENT_EPOCHS:-50}"
+TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-8}"
+EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-8}"
+SEED="${SEED:-42}"
+WORKERS="${WORKERS:-8}"
+EVAL_EVERY="${EVAL_EVERY:-1}"
+PRINT_FREQ="${PRINT_FREQ:-50}"
+
+MIN_SIZE="${MIN_SIZE:-800}"
+MAX_SIZE="${MAX_SIZE:-1333}"
+YOLO_IMGSZ="${YOLO_IMGSZ:-960}"
+
+HFLIP_PROB="${HFLIP_PROB:-0.5}"
+AUG_BRIGHTNESS="${AUG_BRIGHTNESS:-0.2}"
+AUG_SATURATION="${AUG_SATURATION:-0.2}"
+AUG_HUE="${AUG_HUE:-0.015}"
+
+MODEL_SCORE_THRESHOLD="${MODEL_SCORE_THRESHOLD:-0.001}"
+FPPI_THRESHOLD="${FPPI_THRESHOLD:-0.25}"
+EVAL_SPLITS="${EVAL_SPLITS:-val test}"

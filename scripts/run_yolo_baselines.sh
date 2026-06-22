@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+source "$ROOT_DIR/scripts/experiment_defaults.sh"
 
 PYTHON="${PYTHON:-$ROOT_DIR/.venv/bin/python}"
 YOLO="${YOLO:-$ROOT_DIR/.venv/bin/yolo}"
@@ -10,17 +11,18 @@ DATA_ROOT="${DATA_ROOT:-data}"
 OUT_ROOT="${OUT_ROOT:-results/baselines}"
 YOLO_DATASET="${YOLO_DATASET:-$OUT_ROOT/yolo_dataset}"
 YOLO_PROJECT="${YOLO_PROJECT:-$OUT_ROOT/yolo}"
-SEED="${SEED:-42}"
-YOLO_EPOCHS="${YOLO_EPOCHS:-100}"
-YOLO_IMGSZ="${YOLO_IMGSZ:-960}"
-YOLO_BATCH_S="${YOLO_BATCH_S:-32}"
-YOLO_BATCH_M="${YOLO_BATCH_M:-32}"
-YOLO_WORKERS="${YOLO_WORKERS:-16}"
+YOLO_EPOCHS="${YOLO_EPOCHS:-$EXPERIMENT_EPOCHS}"
+YOLO_BATCH_S="${YOLO_BATCH_S:-$TRAIN_BATCH_SIZE}"
+YOLO_BATCH_M="${YOLO_BATCH_M:-$TRAIN_BATCH_SIZE}"
+YOLO_WORKERS="${YOLO_WORKERS:-$WORKERS}"
 YOLO_MODELS="${YOLO_MODELS:-yolov8s.pt yolov8m.pt yolov9s.pt yolov9m.pt yolo11s.pt yolo11m.pt yolo26n.pt}"
-YOLO_EVAL_SPLITS="${YOLO_EVAL_SPLITS:-val test}"
+YOLO_EVAL_SPLITS="${YOLO_EVAL_SPLITS:-$EVAL_SPLITS}"
 YOLO_EVAL_CONF="${YOLO_EVAL_CONF:-0.001}"
-YOLO_EVAL_SCORE_THRESHOLD="${YOLO_EVAL_SCORE_THRESHOLD:-0.25}"
-SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+YOLO_EVAL_SCORE_THRESHOLD="${YOLO_EVAL_SCORE_THRESHOLD:-$FPPI_THRESHOLD}"
+YOLO_LR0="${YOLO_LR0:-0.005}"
+YOLO_MOMENTUM="${YOLO_MOMENTUM:-0.9}"
+YOLO_WEIGHT_DECAY="${YOLO_WEIGHT_DECAY:-0.0005}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-0}"
 
 to_abs_path() {
   case "$1" in
@@ -76,6 +78,25 @@ for model_path in "${models_to_run[@]}"; do
     batch="$batch" \
     workers="$YOLO_WORKERS" \
     seed="$SEED" \
+    deterministic=True \
+    optimizer=SGD \
+    lr0="$YOLO_LR0" \
+    momentum="$YOLO_MOMENTUM" \
+    weight_decay="$YOLO_WEIGHT_DECAY" \
+    fliplr="$HFLIP_PROB" \
+    flipud=0.0 \
+    hsv_h="$AUG_HUE" \
+    hsv_s="$AUG_SATURATION" \
+    hsv_v="$AUG_BRIGHTNESS" \
+    degrees=0.0 \
+    translate=0.0 \
+    scale=0.0 \
+    shear=0.0 \
+    perspective=0.0 \
+    mosaic=0.0 \
+    mixup=0.0 \
+    copy_paste=0.0 \
+    close_mosaic=0 \
     project="$YOLO_PROJECT" \
     name="$name" \
     exist_ok=True
@@ -100,5 +121,13 @@ for model_path in "${models_to_run[@]}"; do
     --batch "$batch" \
     --workers "$YOLO_WORKERS" \
     --conf "$YOLO_EVAL_CONF" \
-    --score-threshold "$YOLO_EVAL_SCORE_THRESHOLD"
+    --score-threshold "$YOLO_EVAL_SCORE_THRESHOLD" \
+    --protocol-name "$EXPERIMENT_PROTOCOL" \
+    --training-epochs "$YOLO_EPOCHS" \
+    --training-batch-size "$batch" \
+    --seed "$SEED" \
+    --hflip-prob "$HFLIP_PROB" \
+    --aug-brightness "$AUG_BRIGHTNESS" \
+    --aug-saturation "$AUG_SATURATION" \
+    --aug-hue "$AUG_HUE"
 done

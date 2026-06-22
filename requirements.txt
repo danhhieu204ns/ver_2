@@ -1,5 +1,6 @@
 kagglehub
-numpy
+# SciPy/scikit-learn wheels imported by transformers are not compatible with NumPy 2 in this environment.
+numpy>=1.23.5,<1.29
 Pillow
 pycocotools
 torch

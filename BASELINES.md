@@ -25,6 +25,30 @@ val:   1102 images, 402 objects
 test:  1101 images, 397 objects
 ```
 
+## Canonical Experiment Protocol
+
+Baseline comparison, dataset ablation, and method ablation source the same defaults from `scripts/experiment_defaults.sh`:
+
+| Setting | Canonical value |
+|---|---:|
+| protocol | `canonical_v2` |
+| epochs | 50 |
+| train/eval batch size | 8 / 8 |
+| seed | 42 |
+| evaluation splits | val, test |
+| resize (Faster R-CNN/DETR) | shortest 800, longest 1333 |
+| YOLO square input | 960 |
+| horizontal flip | 0.5 |
+| brightness / saturation / hue jitter | 0.2 / 0.2 / 0.015 |
+| retained evaluation confidence | 0.001 |
+| fixed FPPI threshold | 0.25 |
+
+YOLO mosaic, mixup, copy-paste, scale, translate, rotation, shear, perspective, and vertical flip are explicitly disabled. Optimizer and learning rate remain architecture-specific and are saved in each run config; forcing one optimizer onto CNN and transformer detectors is not a controlled comparison.
+
+All three experiments use the same train/val/test records. Dataset ablation changes training groups only; its val/test records remain identical. Method ablation changes only the HN-SARD components listed by the variant.
+
+`SKIP_COMPLETED` defaults to `0` so metrics produced under an older protocol are not silently reused. Set `SKIP_COMPLETED=1` only when the existing `config.json` has the same `protocol_name`. Table builders reject missing or mixed protocols by default.
+
 ## Baseline Matrix
 
 | Group | Baseline | Script | Output |
@@ -40,7 +64,7 @@ Notes:
 
 - `fasterrcnn_r50` loads torchvision COCO detection weights, then replaces the final class head.
 - `fasterrcnn_r101` uses an ImageNet-pretrained ResNet-101 FPN backbone because torchvision does not ship a COCO Faster R-CNN R101 checkpoint.
-- `ssd300_vgg16` uses an ImageNet-pretrained VGG16 backbone with a custom 2-class SSD head and gradient clipping for early-step stability.
+- `ssd300_vgg16` loads torchvision COCO detector weights, replaces its classification head with a 2-class head, and uses gradient clipping for early-step stability.
 - `detr_r50` loads `facebook/detr-resnet-50` and replaces the class head for one foreground class.
 - `yolo26n.pt` is used as the YOLO-nano/lightweight baseline because that nano-sized weight is present in the repo.
 
@@ -113,12 +137,13 @@ Paper-faithful Faster R-CNN R50:
   --model fasterrcnn_r50 \
   --data-root data \
   --output-dir results/baselines/fasterrcnn_r50 \
-  --epochs 20 \
-  --batch-size 4 \
-  --eval-batch-size 2 \
+  --epochs 50 \
+  --batch-size 8 \
+  --eval-batch-size 8 \
   --lr 0.005 \
   --lr-step-size 5 \
-  --workers 4 \
+  --workers 8 \
+  --hflip-prob 0.5 --aug-brightness 0.2 --aug-saturation 0.2 --aug-hue 0.015 \
   --seed 42
 ```
 
@@ -129,12 +154,13 @@ Capacity check Faster R-CNN R101:
   --model fasterrcnn_r101 \
   --data-root data \
   --output-dir results/baselines/fasterrcnn_r101 \
-  --epochs 20 \
-  --batch-size 4 \
-  --eval-batch-size 2 \
+  --epochs 50 \
+  --batch-size 8 \
+  --eval-batch-size 8 \
   --lr 0.005 \
   --lr-step-size 5 \
-  --workers 4 \
+  --workers 8 \
+  --hflip-prob 0.5 --aug-brightness 0.2 --aug-saturation 0.2 --aug-hue 0.015 \
   --seed 42
 ```
 
@@ -145,13 +171,14 @@ Lightweight SSD/VGG16:
   --model ssd300_vgg16 \
   --data-root data \
   --output-dir results/baselines/ssd300_vgg16 \
-  --epochs 20 \
+  --epochs 50 \
   --batch-size 8 \
   --eval-batch-size 8 \
   --lr 0.002 \
   --clip-grad-norm 10.0 \
   --lr-step-size 5 \
-  --workers 4 \
+  --workers 8 \
+  --hflip-prob 0.5 --aug-brightness 0.2 --aug-saturation 0.2 --aug-hue 0.015 \
   --seed 42
 ```
 
@@ -162,11 +189,12 @@ Transformer DETR-R50:
   --data-root data \
   --output-dir results/baselines/detr_r50 \
   --epochs 50 \
-  --batch-size 2 \
-  --eval-batch-size 2 \
+  --batch-size 8 \
+  --eval-batch-size 8 \
   --lr 0.0001 \
   --backbone-lr 0.00001 \
-  --workers 4 \
+  --workers 8 \
+  --hflip-prob 0.5 --aug-brightness 0.2 --aug-saturation 0.2 --aug-hue 0.015 \
   --seed 42
 ```
 
@@ -186,7 +214,7 @@ Single YOLO example:
   model=yolo11s.pt \
   data=results/baselines/yolo_dataset/dataset.yaml \
   imgsz=960 \
-  epochs=100 \
+  epochs=50 \
   batch=8 \
   seed=42 \
   project=results/baselines/yolo \
@@ -223,8 +251,18 @@ Report these metrics:
 - `FPR@95TPR`, `Recall@FPR=1%`, `Recall@FPR=5%`: high-recall moderation operating metrics.
 - `in_domain_FPR@95TPR`, `out_domain_FPR@95TPR`: domain-specific image-level false-positive rates at the 95% TPR operating point.
 - `false_positives_on_negatives.fppi`: false positives per negative image at score threshold `0.25`.
+- `invalid_predictions_dropped`: malformed, non-finite, or out-of-range predictions excluded before evaluation; this should be zero for a valid run.
 
 Metrics from Python scripts are stored as fractions. For paper-style percentages, multiply by `100`.
+
+Metric regression checks:
+
+```bash
+.venv/bin/python scripts/test_baseline_eval_utils.py
+.venv/bin/python scripts/check_experiment_protocol.py
+```
+
+The metric checks cover tied-score image AP, zero-threshold behavior for images without detections, invalid prediction filtering, and relative-scale isolation. The protocol audit scans completed configs and exits nonzero when any common budget, augmentation, seed, or evaluation threshold differs from `canonical_v2`. COCO metrics return `null`, rather than a misleading `0`, when a ground-truth/area bucket is unavailable.
 
 ## Standalone Evaluation
 

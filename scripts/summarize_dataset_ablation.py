@@ -21,6 +21,7 @@ FIELDS = [
     "variant",
     "training_data",
     "split",
+    "protocol_name",
     "AP",
     "AP50",
     "AP75",
@@ -43,6 +44,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Root containing one training run directory per ablation variant.",
     )
+    parser.add_argument("--allow-mixed-protocols", action="store_true", help="Allow missing or mixed protocol_name values.")
     parser.add_argument(
         "--output-dir",
         default=Path("results/dataset_ablation/tables"),
@@ -108,10 +110,13 @@ def collect_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
                 rows.append(empty_row(variant, args.split, metrics_path))
             continue
 
+        config_path = metrics_path.parent / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
         row = {
             "variant": variant,
             "training_data": training_data,
             "split": args.split,
+            "protocol_name": config.get("protocol_name"),
             "metrics_path": str(metrics_path),
         }
         for field in FIELDS:
@@ -156,6 +161,9 @@ def render_markdown(rows: list[dict[str, Any]]) -> str:
 def main() -> None:
     args = parse_args()
     rows = collect_rows(args)
+    protocols = {row.get("protocol_name") for row in rows if row.get("metrics_path")}
+    if rows and not args.allow_mixed_protocols and (None in protocols or len(protocols) != 1):
+        raise RuntimeError(f"Missing or mixed experiment protocols: {sorted(map(str, protocols))}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = args.output_dir / f"dataset_ablation_{args.split}.csv"

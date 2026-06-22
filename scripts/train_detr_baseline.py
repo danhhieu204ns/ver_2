@@ -14,7 +14,6 @@ from typing import Any
 
 import torch
 from PIL import Image
-from pycocotools.coco import COCO
 from torch.utils.data import DataLoader, Dataset
 from transformers import DetrConfig, DetrForObjectDetection, DetrImageProcessor
 
@@ -32,6 +31,7 @@ from train_faster_rcnn_baseline import (
     set_seed,
 )
 from baseline_eval_utils import build_detection_metrics, write_image_scores_csv
+from detection_augmentation import DetectionAugmentation, augment_pil_detection
 
 
 DETR_CLASS_ID = 0
@@ -61,11 +61,18 @@ def record_to_coco_annotations(record: dict[str, Any], image_id: int, category_i
 
 
 class DetrNineDashDataset(Dataset):
-    def __init__(self, data_root: Path, split: str, max_images: int | None = None) -> None:
+    def __init__(
+        self,
+        data_root: Path,
+        split: str,
+        max_images: int | None = None,
+        augmentation: DetectionAugmentation | None = None,
+    ) -> None:
         if split not in SPLITS:
             raise ValueError(f"Unsupported split: {split}")
         self.data_root = data_root
         self.split = split
+        self.augmentation = augmentation or DetectionAugmentation()
         self.records = limit_records(load_records(data_root, split), max_images)
         self.coco_ids = list(range(1, len(self.records) + 1))
 
@@ -76,9 +83,23 @@ class DetrNineDashDataset(Dataset):
         record = self.records[index]
         image = Image.open(record["image_path"]).convert("RGB")
         coco_id = self.coco_ids[index]
+        raw_annotations = record_to_coco_annotations(record, coco_id, DETR_CLASS_ID)
+        boxes = [
+            (bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3])
+            for annotation in raw_annotations
+            for bbox in [annotation["bbox"]]
+        ]
+        if self.split == "train":
+            image, boxes = augment_pil_detection(image, boxes, self.augmentation)
+        transformed_annotations = []
+        for annotation, (x1, y1, x2, y2) in zip(raw_annotations, boxes):
+            item = dict(annotation)
+            item["bbox"] = [x1, y1, x2 - x1, y2 - y1]
+            item["area"] = (x2 - x1) * (y2 - y1)
+            transformed_annotations.append(item)
         annotations = {
             "image_id": coco_id,
-            "annotations": record_to_coco_annotations(record, coco_id, DETR_CLASS_ID),
+            "annotations": transformed_annotations,
         }
         meta = {
             "coco_id": coco_id,
@@ -92,36 +113,6 @@ class DetrNineDashDataset(Dataset):
 
     def record_for_coco_id(self, coco_id: int) -> dict[str, Any]:
         return self.records[self.coco_ids.index(coco_id)]
-
-    def to_coco(self) -> COCO:
-        dataset: dict[str, Any] = {
-            "info": {"description": "nine-dash-line DETR baseline dataset"},
-            "licenses": [],
-            "images": [],
-            "annotations": [],
-            "categories": [{"id": CLASS_ID, "name": CLASS_NAME}],
-        }
-        annotation_id = 1
-        for index, record in enumerate(self.records):
-            coco_id = self.coco_ids[index]
-            dataset["images"].append(
-                {
-                    "id": coco_id,
-                    "file_name": f"{record['group']}/{record['file_name']}",
-                    "width": record["width"],
-                    "height": record["height"],
-                }
-            )
-            for annotation in record_to_coco_annotations(record, coco_id, CLASS_ID):
-                annotation["id"] = annotation_id
-                dataset["annotations"].append(annotation)
-                annotation_id += 1
-
-        coco = COCO()
-        coco.dataset = dataset
-        coco.createIndex()
-        return coco
-
 
 def make_collate_fn(processor: DetrImageProcessor):
     def collate_fn(batch: list[tuple[Image.Image, dict[str, Any], dict[str, Any]]]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -247,6 +238,7 @@ def evaluate(
     device: torch.device,
     output_dir: Path,
     split: str,
+    model_score_threshold: float,
     fppi_threshold: float,
 ) -> dict[str, Any]:
     model.eval()
@@ -258,7 +250,11 @@ def evaluate(
         pixel_mask = encoding["pixel_mask"].to(device)
         outputs = model(pixel_values=pixel_values, pixel_mask=pixel_mask)
         target_sizes = torch.tensor([[meta["height"], meta["width"]] for meta in metas], device=device)
-        processed = processor.post_process_object_detection(outputs, threshold=0.0, target_sizes=target_sizes)
+        processed = processor.post_process_object_detection(
+            outputs,
+            threshold=model_score_threshold,
+            target_sizes=target_sizes,
+        )
 
         for meta, output in zip(metas, processed):
             coco_id = int(meta["coco_id"])
@@ -351,9 +347,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model-name", default="facebook/detr-resnet-50", help="Hugging Face DETR checkpoint name.")
     parser.add_argument("--epochs", default=50, type=int, help="Training epochs.")
-    parser.add_argument("--batch-size", default=2, type=int, help="Training batch size.")
-    parser.add_argument("--eval-batch-size", default=2, type=int, help="Evaluation batch size.")
-    parser.add_argument("--workers", default=4, type=int, help="DataLoader workers.")
+    parser.add_argument("--batch-size", default=8, type=int, help="Training batch size.")
+    parser.add_argument("--eval-batch-size", default=8, type=int, help="Evaluation batch size.")
+    parser.add_argument("--workers", default=8, type=int, help="DataLoader workers.")
     parser.add_argument("--lr", default=1e-4, type=float, help="Learning rate for non-backbone parameters.")
     parser.add_argument("--backbone-lr", default=1e-5, type=float, help="Learning rate for DETR backbone parameters.")
     parser.add_argument("--weight-decay", default=1e-4, type=float, help="AdamW weight decay.")
@@ -362,7 +358,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--shortest-edge", default=800, type=int, help="DETR image processor shortest edge.")
     parser.add_argument("--longest-edge", default=1333, type=int, help="DETR image processor longest edge.")
     parser.add_argument("--num-queries", default=100, type=int, help="Number of object queries for random-init DETR.")
+    parser.add_argument("--model-score-threshold", default=0.001, type=float, help="Low score threshold retained for common metrics.")
     parser.add_argument("--fppi-threshold", default=0.25, type=float, help="Score threshold for false-positive-per-image reporting.")
+    parser.add_argument("--hflip-prob", default=0.5, type=float, help="Training horizontal-flip probability.")
+    parser.add_argument("--aug-brightness", default=0.2, type=float, help="Symmetric training brightness jitter.")
+    parser.add_argument("--aug-saturation", default=0.2, type=float, help="Symmetric training saturation jitter.")
+    parser.add_argument("--aug-hue", default=0.015, type=float, help="Symmetric training hue jitter.")
+    parser.add_argument("--protocol-name", default="canonical_v2", help="Experiment protocol recorded in config.json.")
     parser.add_argument("--seed", default=42, type=int, help="Random seed.")
     parser.add_argument("--print-freq", default=50, type=int, help="Training log frequency in steps.")
     parser.add_argument("--eval-every", default=1, type=int, help="Run validation every N epochs.")
@@ -385,8 +387,9 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     processor = create_processor(args)
+    train_augmentation = DetectionAugmentation(args.hflip_prob, args.aug_brightness, args.aug_saturation, args.aug_hue)
     datasets = {
-        "train": DetrNineDashDataset(args.data_root, "train", args.max_train_images),
+        "train": DetrNineDashDataset(args.data_root, "train", args.max_train_images, augmentation=train_augmentation),
         "val": DetrNineDashDataset(args.data_root, "val", args.max_val_images),
         "test": DetrNineDashDataset(args.data_root, "test", args.max_test_images),
     }
@@ -426,7 +429,17 @@ def main() -> None:
     if args.eval_only:
         load_checkpoint(args.eval_only, model, device)
         for split in args.eval_splits:
-            metrics = evaluate(model, processor, eval_loaders[split], datasets[split], device, args.output_dir / "eval_only", split, args.fppi_threshold)
+            metrics = evaluate(
+                model,
+                processor,
+                eval_loaders[split],
+                datasets[split],
+                device,
+                args.output_dir / "eval_only",
+                split,
+                args.model_score_threshold,
+                args.fppi_threshold,
+            )
             print(json.dumps(metrics, ensure_ascii=False, indent=2), flush=True)
         return
 
@@ -435,6 +448,8 @@ def main() -> None:
     history_path = args.output_dir / "metrics_history.jsonl"
     if history_path.exists() and not args.resume:
         history_path.unlink()
+    if not args.resume:
+        set_seed(args.seed)
 
     for epoch in range(start_epoch, args.epochs + 1):
         train_metrics = train_one_epoch(model, optimizer, train_loader, device, epoch, args.print_freq)
@@ -450,13 +465,15 @@ def main() -> None:
                 device,
                 args.output_dir / "eval" / f"epoch_{epoch:03d}",
                 "val",
+                args.model_score_threshold,
                 args.fppi_threshold,
             )
 
         row = {"epoch": epoch, "lr": optimizer.param_groups[0]["lr"], "train": train_metrics, "val": val_metrics}
         append_jsonl(history_path, row)
         save_checkpoint(args.output_dir / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, val_metrics, args)
-        current_map = float(val_metrics.get("mAP", -1.0))
+        map_value = val_metrics.get("mAP")
+        current_map = float(map_value) if map_value is not None else -1.0
         if current_map > best_map:
             best_map = current_map
             save_checkpoint(best_checkpoint, model, optimizer, scheduler, epoch, val_metrics, args)
@@ -466,7 +483,17 @@ def main() -> None:
 
     final_metrics: dict[str, Any] = {}
     for split in args.eval_splits:
-        final_metrics[split] = evaluate(model, processor, eval_loaders[split], datasets[split], device, args.output_dir / "final", split, args.fppi_threshold)
+        final_metrics[split] = evaluate(
+            model,
+            processor,
+            eval_loaders[split],
+            datasets[split],
+            device,
+            args.output_dir / "final",
+            split,
+            args.model_score_threshold,
+            args.fppi_threshold,
+        )
     (args.output_dir / "final_metrics.json").write_text(json.dumps(final_metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     csv_path = args.output_dir / "final_metrics.csv"

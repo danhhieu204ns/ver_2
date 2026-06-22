@@ -3,6 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+source "$ROOT_DIR/scripts/experiment_defaults.sh"
+
+OUT_ROOT="${OUT_ROOT:-results/baselines}"
 
 RUN_TORCHVISION="${RUN_TORCHVISION:-1}"
 RUN_YOLO="${RUN_YOLO:-1}"
@@ -23,7 +26,7 @@ fi
 
 if [[ "$RUN_SUMMARY" == "1" ]]; then
   "${PYTHON:-.venv/bin/python}" scripts/summarize_baseline_results.py \
-    --result-root results/baselines \
-    --output-dir results/baselines/tables \
+    --result-root "$OUT_ROOT" \
+    --output-dir "$OUT_ROOT/tables" \
     --split test
 fi

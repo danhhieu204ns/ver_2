@@ -13,6 +13,7 @@ from typing import Any
 FIELDS = [
     "method",
     "split",
+    "protocol_name",
     "mAP",
     "mAP50",
     "mAP75",
@@ -40,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=Path("results/baselines/tables"), type=Path, help="Output directory.")
     parser.add_argument("--split", default="test", help="Split to summarize from final_metrics.json.")
     parser.add_argument("--include-smoke", action="store_true", help="Include smoke-test result directories.")
+    parser.add_argument("--allow-mixed-protocols", action="store_true", help="Allow missing or mixed protocol_name values.")
     return parser.parse_args()
 
 
@@ -78,7 +80,14 @@ def collect_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
         metrics = load_split_metrics(metrics_path, args.split)
         if metrics is None:
             continue
-        row = {"method": method_name(metrics_path, args.result_root), "split": args.split, "metrics_path": str(metrics_path)}
+        config_path = metrics_path.parent / "config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+        row = {
+            "method": method_name(metrics_path, args.result_root),
+            "split": args.split,
+            "protocol_name": config.get("protocol_name"),
+            "metrics_path": str(metrics_path),
+        }
         for field in FIELDS:
             if field in row:
                 continue
@@ -104,6 +113,9 @@ def render_markdown(rows: list[dict[str, Any]]) -> str:
 def main() -> None:
     args = parse_args()
     rows = collect_rows(args)
+    protocols = {row.get("protocol_name") for row in rows}
+    if rows and not args.allow_mixed_protocols and (None in protocols or len(protocols) != 1):
+        raise RuntimeError(f"Missing or mixed experiment protocols: {sorted(map(str, protocols))}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = args.output_dir / f"baseline_table_{args.split}.csv"
