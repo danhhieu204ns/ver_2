@@ -40,7 +40,7 @@ Notes:
 
 - `fasterrcnn_r50` loads torchvision COCO detection weights, then replaces the final class head.
 - `fasterrcnn_r101` uses an ImageNet-pretrained ResNet-101 FPN backbone because torchvision does not ship a COCO Faster R-CNN R101 checkpoint.
-- `ssd300_vgg16` uses an ImageNet-pretrained VGG16 backbone with a custom 2-class SSD head.
+- `ssd300_vgg16` uses an ImageNet-pretrained VGG16 backbone with a custom 2-class SSD head and gradient clipping for early-step stability.
 - `detr_r50` loads `facebook/detr-resnet-50` and replaces the class head for one foreground class.
 - `yolo26n.pt` is used as the YOLO-nano/lightweight baseline because that nano-sized weight is present in the repo.
 
@@ -149,6 +149,7 @@ Lightweight SSD/VGG16:
   --batch-size 8 \
   --eval-batch-size 8 \
   --lr 0.002 \
+  --clip-grad-norm 10.0 \
   --lr-step-size 5 \
   --workers 4 \
   --seed 42
@@ -254,6 +255,59 @@ Build the main baseline table:
 .venv/bin/python scripts/summarize_baseline_results.py \
   --result-root results/baselines \
   --output-dir results/baselines/tables \
+  --split test
+```
+
+## Stage 3 HN-SARD Loss Ablation
+
+Smoke test without downloading DINOv2:
+
+```bash
+VARIANTS="baseline l_pos_scale_l_con" \
+TEACHER_BACKEND=dummy \
+EPOCHS_LOSS_ABLATION=1 \
+MAX_TRAIN_IMAGES=8 MAX_VAL_IMAGES=4 MAX_TEST_IMAGES=4 \
+BATCH_SIZE=1 EVAL_BATCH_SIZE=1 WORKERS=0 \
+NO_PRETRAINED=1 MIN_SIZE=128 MAX_SIZE=256 \
+SKIP_FINAL_EVAL=1 RUN_SUMMARY=0 COLLECT_ERRORS=0 \
+ABLATION_ROOT=results/hnsard_smoke/loss_ablation \
+  bash scripts/run_loss_ablation.sh
+```
+
+Full Experiment 3 loss ablation:
+
+```bash
+bash scripts/run_loss_ablation.sh
+```
+
+The first real run may download `facebook/dinov2-small` through Hugging Face. Set `TEACHER_LOCAL_FILES_ONLY=1` to force cached/offline loading.
+
+Default variants:
+
+```text
+baseline
+l_pos
+l_pos_scale
+l_pos_scale_l_con
+full_hnsard
+```
+
+Outputs:
+
+```text
+results/hnsard_loss_ablation/runs/<variant>/checkpoints/best.pt
+results/hnsard_loss_ablation/runs/<variant>/final_metrics.json
+results/hnsard_loss_ablation/runs/<variant>/final/predictions_test.json
+results/hnsard_loss_ablation/tables/loss_ablation_test.csv
+results/hnsard_loss_ablation/tables/loss_ablation_test.md
+```
+
+Rebuild the loss-ablation table:
+
+```bash
+.venv/bin/python scripts/summarize_loss_ablation.py \
+  --result-root results/hnsard_loss_ablation/runs \
+  --output-dir results/hnsard_loss_ablation/tables \
   --split test
 ```
 

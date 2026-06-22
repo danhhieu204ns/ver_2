@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import torch
 from ultralytics import YOLO
 
 from baseline_eval_utils import (
@@ -35,6 +36,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default=None, help="Optional Ultralytics device string.")
     parser.add_argument("--workers", default=8, type=int, help="Ultralytics dataloader workers.")
     parser.add_argument("--max-images", default=None, type=int, help="Optional smoke-test image limit per split.")
+    parser.add_argument(
+        "--predict-chunk-size",
+        default=128,
+        type=int,
+        help="Number of images passed to each Ultralytics predict call. Use <=0 to predict a split in one call.",
+    )
     return parser.parse_args()
 
 
@@ -54,28 +61,37 @@ def predict_split(model: YOLO, records: list[dict[str, Any]], coco_ids: list[int
     if args.device is not None:
         kwargs["device"] = args.device
 
+    chunk_size = (
+        args.predict_chunk_size
+        if args.predict_chunk_size and args.predict_chunk_size > 0
+        else max(1, len(image_paths))
+    )
     predictions: list[dict[str, Any]] = []
-    for result_index, result in enumerate(model.predict(**kwargs)):
-        coco_id = coco_ids[result_index]
-        boxes = result.boxes
-        if boxes is None:
-            continue
-        for box, score, cls_id in zip(boxes.xyxy.cpu().tolist(), boxes.conf.cpu().tolist(), boxes.cls.cpu().tolist()):
-            if int(cls_id) != 0:
+    for chunk_start in range(0, len(image_paths), chunk_size):
+        kwargs["source"] = image_paths[chunk_start : chunk_start + chunk_size]
+        for result_offset, result in enumerate(model.predict(**kwargs)):
+            coco_id = coco_ids[chunk_start + result_offset]
+            boxes = result.boxes
+            if boxes is None:
                 continue
-            x1, y1, x2, y2 = [float(value) for value in box]
-            width = max(0.0, x2 - x1)
-            height = max(0.0, y2 - y1)
-            if width <= 0 or height <= 0:
-                continue
-            predictions.append(
-                {
-                    "image_id": coco_id,
-                    "category_id": CLASS_ID,
-                    "bbox": [x1, y1, width, height],
-                    "score": float(score),
-                }
-            )
+            for box, score, cls_id in zip(boxes.xyxy.cpu().tolist(), boxes.conf.cpu().tolist(), boxes.cls.cpu().tolist()):
+                if int(cls_id) != 0:
+                    continue
+                x1, y1, x2, y2 = [float(value) for value in box]
+                width = max(0.0, x2 - x1)
+                height = max(0.0, y2 - y1)
+                if width <= 0 or height <= 0:
+                    continue
+                predictions.append(
+                    {
+                        "image_id": coco_id,
+                        "category_id": CLASS_ID,
+                        "bbox": [x1, y1, width, height],
+                        "score": float(score),
+                    }
+                )
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     return predictions
 
 

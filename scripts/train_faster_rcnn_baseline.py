@@ -292,6 +292,7 @@ def train_one_epoch(
     device: torch.device,
     epoch: int,
     print_freq: int,
+    clip_grad_norm: float | None,
 ) -> dict[str, float]:
     model.train()
     loss_totals: Counter[str] = Counter()
@@ -308,6 +309,10 @@ def train_one_epoch(
 
         optimizer.zero_grad(set_to_none=True)
         losses.backward()
+        if clip_grad_norm is not None and clip_grad_norm > 0:
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
+            if not torch.isfinite(grad_norm):
+                raise RuntimeError(f"Non-finite gradient norm at epoch {epoch}, step {step}: {grad_norm.item()}")
         optimizer.step()
 
         loss_totals["loss"] += float(losses.detach().cpu())
@@ -473,6 +478,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", default=0.005, type=float, help="Initial learning rate.")
     parser.add_argument("--momentum", default=0.9, type=float, help="SGD momentum.")
     parser.add_argument("--weight-decay", default=0.0005, type=float, help="SGD weight decay.")
+    parser.add_argument(
+        "--clip-grad-norm",
+        default=None,
+        type=float,
+        help="Clip gradient norm after backward. Defaults to 10.0 for SSD300; use 0 to disable.",
+    )
     parser.add_argument("--lr-step-size", default=5, type=int, help="StepLR step size.")
     parser.add_argument("--lr-gamma", default=0.1, type=float, help="StepLR gamma.")
     parser.add_argument("--min-size", default=800, type=int, help="Faster R-CNN transform min_size. Ignored by SSD.")
@@ -500,6 +511,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.clip_grad_norm is not None and args.clip_grad_norm < 0:
+        raise ValueError("--clip-grad-norm must be non-negative")
+    if args.clip_grad_norm is None and args.model == "ssd300_vgg16":
+        args.clip_grad_norm = 10.0
     set_seed(args.seed)
     torch.backends.cudnn.benchmark = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -576,7 +591,15 @@ def main() -> None:
         history_path.unlink()
 
     for epoch in range(start_epoch, args.epochs + 1):
-        train_metrics = train_one_epoch(model, optimizer, train_loader, device, epoch, args.print_freq)
+        train_metrics = train_one_epoch(
+            model,
+            optimizer,
+            train_loader,
+            device,
+            epoch,
+            args.print_freq,
+            args.clip_grad_norm,
+        )
         scheduler.step()
 
         val_metrics: dict[str, Any] = {}

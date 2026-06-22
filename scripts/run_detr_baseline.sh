@@ -16,10 +16,17 @@ DETR_LR="${DETR_LR:-0.0001}"
 DETR_BACKBONE_LR="${DETR_BACKBONE_LR:-0.00001}"
 DETR_EVAL_EVERY="${DETR_EVAL_EVERY:-1}"
 PRINT_FREQ="${PRINT_FREQ:-50}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+
+OUTPUT_DIR="$OUT_ROOT/detr_r50"
+if [[ "$SKIP_COMPLETED" == "1" && -s "$OUTPUT_DIR/final_metrics.json" ]]; then
+  echo "Skipping detr_r50: found $OUTPUT_DIR/final_metrics.json"
+  exit 0
+fi
 
 "$PYTHON" scripts/train_detr_baseline.py \
   --data-root "$DATA_ROOT" \
-  --output-dir "$OUT_ROOT/detr_r50" \
+  --output-dir "$OUTPUT_DIR" \
   --epochs "$DETR_EPOCHS" \
   --batch-size "$DETR_BATCH" \
   --eval-batch-size "$DETR_EVAL_BATCH" \

@@ -70,7 +70,7 @@ Tên method chốt:
 Ý tưởng chính:
 
 * dùng Faster R-CNN R50-FPN làm student detector;
-* dùng DINOv2 như **self-supervised visual foundation teacher**, không gọi là vision-language model;
+* dùng DINOv2 như **self-supervised visual foundation teacher**;
 * dùng region crop + context resize để DINOv2 nhìn rõ tiny/thin object;
 * thêm hai loss chính:
 
@@ -693,24 +693,104 @@ Output:
 * bảng chứng minh vai trò của negative in-domain;
 * figure false positive examples.
 
+Script đã triển khai trong repo:
+
+```bash
+# Smoke test: chỉ kiểm tra tạo biến thể dataset và loader.
+DRY_RUN=1 MAX_TRAIN_IMAGES=8 MAX_VAL_IMAGES=4 MAX_TEST_IMAGES=4 \
+  bash scripts/run_dataset_ablation.sh
+
+# Full run mặc định dùng Faster R-CNN R50 cho 4 biến thể.
+bash scripts/run_dataset_ablation.sh
+```
+
+Các output chính:
+
+* dataset biến thể: `results/dataset_ablation/data/<variant>`;
+* training run: `results/dataset_ablation/runs/<variant>`;
+* bảng Experiment 2: `results/dataset_ablation/tables/dataset_ablation_test.{csv,md}`;
+* false-positive overlays: `results/dataset_ablation/errors/<variant>/overlays`.
+
+Nếu chỉ muốn dựng lại bảng từ các run đã có:
+
+```bash
+.venv/bin/python scripts/summarize_dataset_ablation.py \
+  --result-root results/dataset_ablation/runs \
+  --output-dir results/dataset_ablation/tables \
+  --split test
+```
+
 ---
 
 ## Giai đoạn 3 — Implement HN-SARD core, 2–3 tuần
 
-Thứ tự code:
+Script đã triển khai trong repo:
 
-1. lấy RoI features từ Faster R-CNN;
-2. implement DINOv2 context crop embedding;
-3. implement (L_{pos});
-4. thêm scale-aware weight;
-5. implement hard-negative top-K mining;
-6. thêm warm-up;
-7. implement (L_{con}).
+* `scripts/train_hnsard.py`: trainer HN-SARD dùng Faster R-CNN, DINOv2 context crop teacher, `L_pos`, scale-aware weight, hard-negative top-K mining, warm-up, và `L_con`;
+* `scripts/run_loss_ablation.sh`: chạy loss ablation cho Experiment 3;
+* `scripts/summarize_loss_ablation.py`: dựng bảng từ `final_metrics.json`.
 
-Output:
+Chạy smoke test trước để kiểm tra pipeline không cần tải DINOv2:
 
-* HN-SARD chạy ổn;
-* ablation từng module.
+```bash
+VARIANTS="baseline l_pos_scale_l_con" \
+TEACHER_BACKEND=dummy \
+EPOCHS_LOSS_ABLATION=1 \
+MAX_TRAIN_IMAGES=8 MAX_VAL_IMAGES=4 MAX_TEST_IMAGES=4 \
+BATCH_SIZE=1 EVAL_BATCH_SIZE=1 WORKERS=0 \
+NO_PRETRAINED=1 MIN_SIZE=128 MAX_SIZE=256 \
+SKIP_FINAL_EVAL=1 RUN_SUMMARY=0 COLLECT_ERRORS=0 \
+ABLATION_ROOT=results/hnsard_smoke/loss_ablation \
+  bash scripts/run_loss_ablation.sh
+```
+
+Chạy full loss ablation mặc định:
+
+```bash
+bash scripts/run_loss_ablation.sh
+```
+
+Lần chạy thật đầu tiên có thể tải `facebook/dinov2-small` qua Hugging Face. Nếu máy đã có cache và muốn ép offline, thêm `TEACHER_LOCAL_FILES_ONLY=1`.
+
+Mặc định script chạy 5 biến thể:
+
+1. `baseline`: detection loss only;
+2. `l_pos`: thêm `L_pos`;
+3. `l_pos_scale`: thêm `L_pos` + scale-aware weight;
+4. `l_pos_scale_l_con`: thêm `L_pos` + scale-aware weight + `L_con` không warm-up;
+5. `full_hnsard`: full HN-SARD với warm-up cho `L_con`.
+
+Các output chính:
+
+* training run: `results/hnsard_loss_ablation/runs/<variant>`;
+* bảng Experiment 3: `results/hnsard_loss_ablation/tables/loss_ablation_test.{csv,md}`;
+* false-positive overlays: `results/hnsard_loss_ablation/errors/<variant>/overlays`.
+
+Nếu chỉ muốn chạy full HN-SARD một mình:
+
+```bash
+.venv/bin/python scripts/train_hnsard.py \
+  --model fasterrcnn_r50 \
+  --data-root data \
+  --output-dir results/hnsard/full_hnsard \
+  --epochs 20 \
+  --batch-size 4 \
+  --eval-batch-size 2 \
+  --workers 4 \
+  --lambda-pos 0.5 \
+  --lambda-con 0.1 \
+  --scale-aware \
+  --contrastive-warmup-epochs 3
+```
+
+Nếu chỉ muốn dựng lại bảng từ các run đã có:
+
+```bash
+.venv/bin/python scripts/summarize_loss_ablation.py \
+  --result-root results/hnsard_loss_ablation/runs \
+  --output-dir results/hnsard_loss_ablation/tables \
+  --split test
+```
 
 ---
 

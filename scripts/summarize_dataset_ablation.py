@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Build the Experiment 2 dataset-ablation table from final metrics."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+from pathlib import Path
+from typing import Any
+
+
+VARIANTS: dict[str, str] = {
+    "positive_only": "Positive only",
+    "positive_negative_out_domain": "Positive + negative out-domain",
+    "positive_negative_in_domain": "Positive + negative in-domain",
+    "positive_both_negatives": "Positive + both negatives",
+}
+
+FIELDS = [
+    "variant",
+    "training_data",
+    "split",
+    "AP",
+    "AP50",
+    "AP75",
+    "FPR_in_domain",
+    "FPR_out_domain",
+    "FPR@95TPR",
+    "image_AUROC",
+    "image_AP",
+    "negative_fppi",
+    "detections",
+    "metrics_path",
+]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--result-root",
+        default=Path("results/dataset_ablation/runs"),
+        type=Path,
+        help="Root containing one training run directory per ablation variant.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=Path("results/dataset_ablation/tables"),
+        type=Path,
+        help="Output directory for CSV and markdown tables.",
+    )
+    parser.add_argument("--split", default="test", help="Split to summarize from final_metrics.json.")
+    parser.add_argument(
+        "--include-missing",
+        action="store_true",
+        help="Include expected variants with blank metrics when final_metrics.json is missing.",
+    )
+    return parser.parse_args()
+
+
+def load_split_metrics(path: Path, split: str) -> dict[str, Any] | None:
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if isinstance(payload, dict) and split in payload and isinstance(payload[split], dict):
+        return payload[split]
+    if isinstance(payload, dict) and payload.get("split") == split:
+        return payload
+    return None
+
+
+def metric_value(metrics: dict[str, Any], field: str) -> Any:
+    metric_map = {
+        "AP": "mAP",
+        "AP50": "mAP50",
+        "AP75": "mAP75",
+        "FPR_in_domain": "in_domain_FPR@95TPR",
+        "FPR_out_domain": "out_domain_FPR@95TPR",
+    }
+    if field == "negative_fppi":
+        return metrics.get("false_positives_on_negatives", {}).get("fppi")
+    return metrics.get(metric_map.get(field, field))
+
+
+def empty_row(variant: str, split: str, metrics_path: Path) -> dict[str, Any]:
+    row = {
+        "variant": variant,
+        "training_data": VARIANTS[variant],
+        "split": split,
+        "metrics_path": str(metrics_path),
+    }
+    for field in FIELDS:
+        row.setdefault(field, "")
+    return row
+
+
+def collect_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for variant, training_data in VARIANTS.items():
+        metrics_path = args.result_root / variant / "final_metrics.json"
+        if not metrics_path.is_file():
+            if args.include_missing:
+                rows.append(empty_row(variant, args.split, metrics_path))
+            continue
+
+        metrics = load_split_metrics(metrics_path, args.split)
+        if metrics is None:
+            if args.include_missing:
+                rows.append(empty_row(variant, args.split, metrics_path))
+            continue
+
+        row = {
+            "variant": variant,
+            "training_data": training_data,
+            "split": args.split,
+            "metrics_path": str(metrics_path),
+        }
+        for field in FIELDS:
+            if field in row:
+                continue
+            row[field] = metric_value(metrics, field)
+        rows.append(row)
+    return rows
+
+
+def render_markdown(rows: list[dict[str, Any]]) -> str:
+    display_fields = [
+        "training_data",
+        "AP",
+        "AP50",
+        "FPR_in_domain",
+        "FPR_out_domain",
+        "FPR@95TPR",
+        "negative_fppi",
+    ]
+    headers = {
+        "training_data": "Training data",
+        "AP": "AP",
+        "AP50": "AP50",
+        "FPR_in_domain": "FPR in-domain",
+        "FPR_out_domain": "FPR out-domain",
+        "FPR@95TPR": "FPR@95TPR",
+        "negative_fppi": "Negative FPPI",
+    }
+    lines = [
+        "# Dataset Ablation Table",
+        "",
+        "| " + " | ".join(headers[field] for field in display_fields) + " |",
+        "| " + " | ".join("---" for _ in display_fields) + " |",
+    ]
+    for row in rows:
+        values = ["" if row.get(field) is None else str(row.get(field, "")) for field in display_fields]
+        lines.append("| " + " | ".join(values) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    args = parse_args()
+    rows = collect_rows(args)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    csv_path = args.output_dir / f"dataset_ablation_{args.split}.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    md_path = args.output_dir / f"dataset_ablation_{args.split}.md"
+    md_path.write_text(render_markdown(rows), encoding="utf-8")
+    print(json.dumps({"rows": len(rows), "csv": str(csv_path), "markdown": str(md_path)}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
