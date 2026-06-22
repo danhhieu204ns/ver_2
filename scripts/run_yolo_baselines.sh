@@ -15,7 +15,7 @@ YOLO_EPOCHS="${YOLO_EPOCHS:-$EXPERIMENT_EPOCHS}"
 YOLO_BATCH_S="${YOLO_BATCH_S:-$TRAIN_BATCH_SIZE}"
 YOLO_BATCH_M="${YOLO_BATCH_M:-$TRAIN_BATCH_SIZE}"
 YOLO_WORKERS="${YOLO_WORKERS:-$WORKERS}"
-YOLO_MODELS="${YOLO_MODELS:-yolov8s.pt yolov8m.pt yolov9s.pt yolov9m.pt yolo11s.pt yolo11m.pt yolo26n.pt}"
+YOLO_MODELS="${YOLO_MODELS:-yolov8s.pt yolov8m.pt yolov9s.pt yolov9m.pt yolov10s.pt yolov10m.pt yolo11s.pt yolo11m.pt yolo26n.pt rtdetr-l.pt}"
 YOLO_EVAL_SPLITS="${YOLO_EVAL_SPLITS:-$EVAL_SPLITS}"
 YOLO_EVAL_CONF="${YOLO_EVAL_CONF:-0.001}"
 YOLO_EVAL_SCORE_THRESHOLD="${YOLO_EVAL_SCORE_THRESHOLD:-$FPPI_THRESHOLD}"
@@ -66,7 +66,7 @@ for model_path in "${models_to_run[@]}"; do
   fi
 
   batch="$YOLO_BATCH_S"
-  if [[ "$name" == *m ]]; then
+  if [[ "$name" == *m || "$name" == *l || "$name" == *x || "$name" == rtdetr* ]]; then
     batch="$YOLO_BATCH_M"
   fi
 

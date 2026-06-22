@@ -7,7 +7,7 @@ torch
 torchmetrics
 torchvision
 tqdm
-ultralytics
+ultralytics>=8.3.0
 transformers
 timm
 
