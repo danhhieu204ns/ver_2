@@ -790,7 +790,8 @@ Nếu chỉ muốn chạy full HN-SARD một mình:
   --lambda-pos 0.5 \
   --lambda-con 0.1 \
   --scale-aware \
-  --contrastive-warmup-epochs 3
+  --contrastive-warmup-epochs 3 \
+  --patience 15
 ```
 
 Nếu chỉ muốn dựng lại bảng từ các run đã có:
@@ -885,3 +886,64 @@ Không nên biến bài thành cuộc đua mAP đơn thuần. Bài của bạn m
 Thông điệp cuối cùng của paper nên là:
 
 > **A detector for sensitive cartographic moderation should not only detect violations, but also avoid falsely flagging visually similar clean maps. HN-SARD is designed for this high-recall, low-false-positive setting.**
+
+---
+
+# 14. Early Stopping
+
+Tất cả training script (Faster R-CNN, DETR, HN-SARD, YOLO) đều hỗ trợ early stopping dựa trên val mAP.
+
+## Tham số
+
+| Tham số | Mặc định | Ý nghĩa |
+|---|---|---|
+| `--patience` | `15` | Dừng nếu val mAP không cải thiện sau N epoch eval liên tiếp. |
+| `--patience 0` | — | Tắt early stopping, chạy đủ `--epochs`. |
+
+## Cách hoạt động
+
+1. Sau mỗi eval epoch, script so sánh val mAP với `best_map`.
+2. Nếu cải thiện → lưu `best.pt`, reset counter.
+3. Nếu không cải thiện → tăng `no_improve` lên 1.
+4. Khi `no_improve >= patience` → in thông báo và dừng vòng lặp.
+5. `best.pt` (checkpoint tốt nhất về val mAP) vẫn được load cho final eval.
+
+## Tại sao `patience=15`?
+
+Với `StepLR(step_size=5, gamma=0.1)`, LR giảm xuống `≤ 5e-6` sau epoch 15, tức là
+các epoch từ 16 trở đi đóng góp rất ít. `patience=15` cho phép model hội tụ hoàn
+toàn qua vài chu kỳ decay trước khi dừng.
+
+## Override
+
+```bash
+# Tắt hoàn toàn early stopping
+PATIENCE=0 bash scripts/run_all_baselines.sh
+
+# Dùng patience khác cho loss ablation
+PATIENCE_ABLATION=20 bash scripts/run_loss_ablation.sh
+
+# Khi chạy trực tiếp
+.venv/bin/python scripts/train_faster_rcnn_baseline.py \
+  --model fasterrcnn_r50 \
+  --data-root data \
+  --output-dir results/baselines/fasterrcnn_r50 \
+  --epochs 50 \
+  --patience 15 \
+  ...
+```
+
+## YOLO
+
+YOLO nhận `patience=` trực tiếp từ framework của ultralytics:
+
+```bash
+.venv/bin/yolo detect train \
+  model=yolo11s.pt \
+  data=results/baselines/yolo_dataset/dataset.yaml \
+  epochs=50 \
+  patience=15 \
+  ...
+```
+
+`run_yolo_baselines.sh` đã tự động truyền `patience="$PATIENCE"` vào lệnh trên.
