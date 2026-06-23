@@ -26,7 +26,8 @@ OVERWRITE_DATA="${OVERWRITE_DATA:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 RUN_SUMMARY="${RUN_SUMMARY:-1}"
 COLLECT_ERRORS="${COLLECT_ERRORS:-1}"
-SKIP_COMPLETED="${SKIP_COMPLETED:-0}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+AUTO_RESUME="${AUTO_RESUME:-1}"
 PATIENCE_ABLATION="${PATIENCE_ABLATION:-$PATIENCE}"
 NO_PRETRAINED="${NO_PRETRAINED:-0}"
 MAX_TRAIN_IMAGES="${MAX_TRAIN_IMAGES:-}"
@@ -104,6 +105,11 @@ for variant in "${variants_to_run[@]}"; do
   fi
   if [[ "$NO_PRETRAINED" == "1" ]]; then
     train_args+=(--no-pretrained)
+  fi
+  resume_checkpoint="$output_dir/checkpoints/last.pt"
+  if [[ "$AUTO_RESUME" == "1" && -s "$resume_checkpoint" ]]; then
+    echo "Resuming $variant from $resume_checkpoint"
+    train_args+=(--resume "$resume_checkpoint")
   fi
 
   "$PYTHON" scripts/train_faster_rcnn_baseline.py "${train_args[@]}"

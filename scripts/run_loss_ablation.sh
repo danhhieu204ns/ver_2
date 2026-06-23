@@ -40,7 +40,8 @@ TEACHER_BANK_SIZE="${TEACHER_BANK_SIZE:-512}"
 DRY_RUN="${DRY_RUN:-0}"
 RUN_SUMMARY="${RUN_SUMMARY:-1}"
 COLLECT_ERRORS="${COLLECT_ERRORS:-1}"
-SKIP_COMPLETED="${SKIP_COMPLETED:-0}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+AUTO_RESUME="${AUTO_RESUME:-1}"
 PATIENCE_ABLATION="${PATIENCE_ABLATION:-$PATIENCE}"
 NO_PRETRAINED="${NO_PRETRAINED:-0}"
 SKIP_FINAL_EVAL="${SKIP_FINAL_EVAL:-0}"
@@ -130,6 +131,7 @@ run_variant() {
   fi
 
   mapfile -t train_args < <(base_train_args "$output_dir")
+  local resume_checkpoint="$output_dir/checkpoints/last.pt"
   case "$variant" in
     baseline)
       train_args+=(--teacher-backend none --lambda-pos 0 --lambda-con 0 --no-scale-aware --contrastive-warmup-epochs 0)
@@ -151,6 +153,11 @@ run_variant() {
       exit 2
       ;;
   esac
+
+  if [[ "$AUTO_RESUME" == "1" && -s "$resume_checkpoint" ]]; then
+    echo "Resuming $variant from $resume_checkpoint"
+    train_args+=(--resume "$resume_checkpoint")
+  fi
 
   "$PYTHON" scripts/train_hnsard.py "${train_args[@]}"
 

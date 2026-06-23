@@ -14,13 +14,21 @@ DETR_EVAL_BATCH="${DETR_EVAL_BATCH:-$EVAL_BATCH_SIZE}"
 DETR_LR="${DETR_LR:-0.0001}"
 DETR_BACKBONE_LR="${DETR_BACKBONE_LR:-0.00001}"
 DETR_EVAL_EVERY="${DETR_EVAL_EVERY:-$EVAL_EVERY}"
-SKIP_COMPLETED="${SKIP_COMPLETED:-0}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+AUTO_RESUME="${AUTO_RESUME:-1}"
 read -r -a EVAL_SPLIT_ARRAY <<< "$EVAL_SPLITS"
 
 OUTPUT_DIR="$OUT_ROOT/detr_r50"
 if [[ "$SKIP_COMPLETED" == "1" && -s "$OUTPUT_DIR/final_metrics.json" ]]; then
   echo "Skipping detr_r50: found $OUTPUT_DIR/final_metrics.json"
   exit 0
+fi
+
+resume_args=()
+resume_checkpoint="$OUTPUT_DIR/checkpoints/last.pt"
+if [[ "$AUTO_RESUME" == "1" && -s "$resume_checkpoint" ]]; then
+  echo "Resuming detr_r50 from $resume_checkpoint"
+  resume_args+=(--resume "$resume_checkpoint")
 fi
 
 "$PYTHON" scripts/train_detr_baseline.py \
@@ -45,4 +53,5 @@ fi
   --seed "$SEED" \
   --eval-every "$DETR_EVAL_EVERY" \
   --print-freq "$PRINT_FREQ" \
-  --patience "$PATIENCE"
+  --patience "$PATIENCE" \
+  "${resume_args[@]}"

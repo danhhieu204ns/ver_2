@@ -9,7 +9,8 @@ PYTHON="${PYTHON:-.venv/bin/python}"
 DATA_ROOT="${DATA_ROOT:-data}"
 OUT_ROOT="${OUT_ROOT:-results/baselines}"
 EPOCHS_TORCHVISION="${EPOCHS_TORCHVISION:-$EXPERIMENT_EPOCHS}"
-SKIP_COMPLETED="${SKIP_COMPLETED:-0}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+AUTO_RESUME="${AUTO_RESUME:-1}"
 FRCNN_BATCH="${FRCNN_BATCH:-$TRAIN_BATCH_SIZE}"
 FRCNN_EVAL_BATCH="${FRCNN_EVAL_BATCH:-$EVAL_BATCH_SIZE}"
 SSD_BATCH="${SSD_BATCH:-$TRAIN_BATCH_SIZE}"
@@ -39,6 +40,13 @@ run_torchvision_baseline() {
     return
   fi
 
+  local resume_args=()
+  local resume_checkpoint="$output_dir/checkpoints/last.pt"
+  if [[ "$AUTO_RESUME" == "1" && -s "$resume_checkpoint" ]]; then
+    echo "Resuming $output_name from $resume_checkpoint"
+    resume_args+=(--resume "$resume_checkpoint")
+  fi
+
   "$PYTHON" scripts/train_faster_rcnn_baseline.py \
     --model "$model" \
     --data-root "$DATA_ROOT" \
@@ -63,6 +71,7 @@ run_torchvision_baseline() {
     --eval-every "$EVAL_EVERY" \
     --print-freq "$PRINT_FREQ" \
     --patience "$PATIENCE" \
+    "${resume_args[@]}" \
     "${extra_args[@]}"
 }
 
