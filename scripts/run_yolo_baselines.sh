@@ -22,7 +22,9 @@ YOLO_EVAL_SCORE_THRESHOLD="${YOLO_EVAL_SCORE_THRESHOLD:-$FPPI_THRESHOLD}"
 YOLO_LR0="${YOLO_LR0:-0.005}"
 YOLO_MOMENTUM="${YOLO_MOMENTUM:-0.9}"
 YOLO_WEIGHT_DECAY="${YOLO_WEIGHT_DECAY:-0.0005}"
-SKIP_COMPLETED="${SKIP_COMPLETED:-0}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+SKIP_EXISTING_TRAIN="${SKIP_EXISTING_TRAIN:-1}"
+DOWNLOAD_MISSING_YOLO_WEIGHTS="${DOWNLOAD_MISSING_YOLO_WEIGHTS:-1}"
 
 to_abs_path() {
   case "$1" in
@@ -35,6 +37,51 @@ DATA_ROOT="$(to_abs_path "$DATA_ROOT")"
 OUT_ROOT="$(to_abs_path "$OUT_ROOT")"
 YOLO_DATASET="$(to_abs_path "$YOLO_DATASET")"
 YOLO_PROJECT="$(to_abs_path "$YOLO_PROJECT")"
+
+ensure_yolo_weight() {
+  local model_path="$1"
+
+  if [[ -f "$model_path" ]]; then
+    return 0
+  fi
+
+  if [[ "$DOWNLOAD_MISSING_YOLO_WEIGHTS" != "1" ]]; then
+    echo "Missing YOLO weight: $model_path" >&2
+    exit 1
+  fi
+
+  echo "Downloading YOLO weight: $model_path"
+  "$PYTHON" - "$model_path" <<'PY'
+import sys
+from pathlib import Path
+
+from ultralytics import YOLO
+
+weight = sys.argv[1]
+name = Path(weight).name.lower()
+
+if name.startswith("rtdetr"):
+    from ultralytics import RTDETR
+
+    RTDETR(weight)
+else:
+    YOLO(weight)
+PY
+
+  local model_dir
+  model_dir="$(dirname "$model_path")"
+  local model_file
+  model_file="$(basename "$model_path")"
+  if [[ ! -f "$model_path" && "$model_path" != "$model_file" && -f "$model_file" ]]; then
+    mkdir -p "$model_dir"
+    mv "$model_file" "$model_path"
+  fi
+
+  if [[ ! -f "$model_path" ]]; then
+    echo "Missing YOLO weight after download attempt: $model_path" >&2
+    exit 1
+  fi
+}
 
 models_to_run=()
 for model_path in $YOLO_MODELS; do
@@ -59,51 +106,58 @@ fi
 
 for model_path in "${models_to_run[@]}"; do
   name="$(basename "$model_path" .pt)"
-
-  if [[ ! -f "$model_path" ]]; then
-    echo "Missing YOLO weight: $model_path" >&2
-    exit 1
-  fi
+  trained_weights="$YOLO_PROJECT/$name/weights/best.pt"
 
   batch="$YOLO_BATCH_S"
   if [[ "$name" == *m || "$name" == *l || "$name" == *x || "$name" == rtdetr* ]]; then
     batch="$YOLO_BATCH_M"
   fi
 
-  "$YOLO" detect train \
-    model="$model_path" \
-    data="$YOLO_DATASET/dataset.yaml" \
-    imgsz="$YOLO_IMGSZ" \
-    epochs="$YOLO_EPOCHS" \
-    batch="$batch" \
-    workers="$YOLO_WORKERS" \
-    seed="$SEED" \
-    deterministic=True \
-    optimizer=SGD \
-    lr0="$YOLO_LR0" \
-    momentum="$YOLO_MOMENTUM" \
-    weight_decay="$YOLO_WEIGHT_DECAY" \
-    fliplr="$HFLIP_PROB" \
-    flipud=0.0 \
-    hsv_h="$AUG_HUE" \
-    hsv_s="$AUG_SATURATION" \
-    hsv_v="$AUG_BRIGHTNESS" \
-    degrees=0.0 \
-    translate=0.0 \
-    scale=0.0 \
-    shear=0.0 \
-    perspective=0.0 \
-    mosaic=0.0 \
-    mixup=0.0 \
-    copy_paste=0.0 \
-    close_mosaic=0 \
-    project="$YOLO_PROJECT" \
-    name="$name" \
-    patience="$PATIENCE" \
-    exist_ok=True
+  if [[ "$SKIP_EXISTING_TRAIN" == "1" && -s "$trained_weights" ]]; then
+    echo "Skipping train for $name: found $trained_weights"
+  else
+    ensure_yolo_weight "$model_path"
+
+    "$YOLO" detect train \
+      model="$model_path" \
+      data="$YOLO_DATASET/dataset.yaml" \
+      imgsz="$YOLO_IMGSZ" \
+      epochs="$YOLO_EPOCHS" \
+      batch="$batch" \
+      workers="$YOLO_WORKERS" \
+      seed="$SEED" \
+      deterministic=True \
+      optimizer=SGD \
+      lr0="$YOLO_LR0" \
+      momentum="$YOLO_MOMENTUM" \
+      weight_decay="$YOLO_WEIGHT_DECAY" \
+      fliplr="$HFLIP_PROB" \
+      flipud=0.0 \
+      hsv_h="$AUG_HUE" \
+      hsv_s="$AUG_SATURATION" \
+      hsv_v="$AUG_BRIGHTNESS" \
+      degrees=0.0 \
+      translate=0.0 \
+      scale=0.0 \
+      shear=0.0 \
+      perspective=0.0 \
+      mosaic=0.0 \
+      mixup=0.0 \
+      copy_paste=0.0 \
+      close_mosaic=0 \
+      project="$YOLO_PROJECT" \
+      name="$name" \
+      patience="$PATIENCE" \
+      exist_ok=True
+  fi
+
+  if [[ ! -s "$trained_weights" ]]; then
+    echo "Missing trained YOLO weight: $trained_weights" >&2
+    exit 1
+  fi
 
   "$YOLO" detect val \
-    model="$YOLO_PROJECT/$name/weights/best.pt" \
+    model="$trained_weights" \
     data="$YOLO_DATASET/dataset.yaml" \
     split=test \
     imgsz="$YOLO_IMGSZ" \
@@ -114,7 +168,7 @@ for model_path in "${models_to_run[@]}"; do
     exist_ok=True
 
   "$PYTHON" scripts/evaluate_yolo_baseline.py \
-    --weights "$YOLO_PROJECT/$name/weights/best.pt" \
+    --weights "$trained_weights" \
     --data-root "$DATA_ROOT" \
     --output-dir "$YOLO_PROJECT/${name}_eval" \
     --splits $YOLO_EVAL_SPLITS \
