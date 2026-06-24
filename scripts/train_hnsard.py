@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 from torchvision.ops import box_iou
 
 from train_faster_rcnn_baseline import (
+    ANCHOR_PRESETS,
     CLASS_ID,
     SPLITS,
     NineDashDetectionDataset,
@@ -590,6 +591,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr-gamma", default=0.1, type=float)
     parser.add_argument("--min-size", default=800, type=int)
     parser.add_argument("--max-size", default=1333, type=int)
+    parser.add_argument("--anchor-preset", default="micro", choices=ANCHOR_PRESETS)
     parser.add_argument("--model-score-threshold", default=0.001, type=float)
     parser.add_argument("--fppi-threshold", default=0.25, type=float)
     parser.add_argument("--hflip-prob", default=0.5, type=float)
@@ -724,6 +726,7 @@ def main() -> None:
             {
                 "device": str(device),
                 "model": args.model,
+                "anchor_preset": args.anchor_preset,
                 "teacher_backend": args.teacher_backend,
                 "lambda_pos": args.lambda_pos,
                 "lambda_con": args.lambda_con,
@@ -759,6 +762,7 @@ def main() -> None:
         min_size=args.min_size,
         max_size=args.max_size,
         score_threshold=args.model_score_threshold,
+        anchor_preset=args.anchor_preset,
     ).to(device)
     add_projection_head(model, teacher_dim, device)
     teacher, loaded_teacher_dim = build_teacher(args, device) if needs_training_teacher else (None, teacher_dim)

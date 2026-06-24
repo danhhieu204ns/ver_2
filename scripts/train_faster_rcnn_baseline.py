@@ -23,6 +23,7 @@ from torchvision.models.detection import (
     fasterrcnn_resnet50_fpn,
     ssd300_vgg16,
 )
+from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor
 from torchvision.models.detection.faster_rcnn import FasterRCNN, FastRCNNPredictor
 from torchvision.models.detection.ssd import SSDClassificationHead
@@ -37,6 +38,9 @@ CLASS_ID = 1
 CLASS_NAME = "nine_dash_line"
 SPLITS = ("train", "val", "test")
 MODEL_CHOICES = ("fasterrcnn_r50", "fasterrcnn_r101", "ssd300_vgg16")
+ANCHOR_PRESETS = ("default", "micro")
+MICRO_ANCHOR_SIZES = ((8,), (16,), (32,), (64,), (128,))
+DEFAULT_ANCHOR_ASPECT_RATIOS = ((0.5, 1.0, 2.0),) * 5
 
 
 def load_annotation(path: Path) -> list[dict[str, Any]]:
@@ -202,13 +206,32 @@ def set_seed(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
-def create_fasterrcnn_r50(pretrained: bool, min_size: int, max_size: int, score_threshold: float) -> torch.nn.Module:
+def build_anchor_generator(anchor_preset: str) -> AnchorGenerator | None:
+    if anchor_preset == "default":
+        return None
+    if anchor_preset == "micro":
+        return AnchorGenerator(sizes=MICRO_ANCHOR_SIZES, aspect_ratios=DEFAULT_ANCHOR_ASPECT_RATIOS)
+    raise ValueError(f"Unsupported anchor preset: {anchor_preset}")
+
+
+def create_fasterrcnn_r50(
+    pretrained: bool,
+    min_size: int,
+    max_size: int,
+    score_threshold: float,
+    anchor_preset: str,
+) -> torch.nn.Module:
     weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT if pretrained else None
+    model_kwargs: dict[str, Any] = {}
+    anchor_generator = build_anchor_generator(anchor_preset)
+    if anchor_generator is not None:
+        model_kwargs["rpn_anchor_generator"] = anchor_generator
     model = fasterrcnn_resnet50_fpn(
         weights=weights,
         weights_backbone=None,
         min_size=min_size,
         max_size=max_size,
+        **model_kwargs,
     )
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=2)
@@ -216,14 +239,24 @@ def create_fasterrcnn_r50(pretrained: bool, min_size: int, max_size: int, score_
     return model
 
 
-def create_fasterrcnn_r101(pretrained: bool, min_size: int, max_size: int, score_threshold: float) -> torch.nn.Module:
+def create_fasterrcnn_r101(
+    pretrained: bool,
+    min_size: int,
+    max_size: int,
+    score_threshold: float,
+    anchor_preset: str,
+) -> torch.nn.Module:
     # torchvision does not ship a COCO Faster R-CNN R101 checkpoint. This uses
     # ImageNet-pretrained ResNet-101 as the FPN backbone when pretrained=True.
     weights = ResNet101_Weights.IMAGENET1K_V2 if pretrained else None
     norm_layer = misc_nn_ops.FrozenBatchNorm2d if pretrained else torch.nn.BatchNorm2d
     backbone = resnet101(weights=weights, norm_layer=norm_layer)
     backbone = _resnet_fpn_extractor(backbone, trainable_layers=3)
-    model = FasterRCNN(backbone, num_classes=2, min_size=min_size, max_size=max_size)
+    anchor_generator = build_anchor_generator(anchor_preset)
+    model_kwargs: dict[str, Any] = {}
+    if anchor_generator is not None:
+        model_kwargs["rpn_anchor_generator"] = anchor_generator
+    model = FasterRCNN(backbone, num_classes=2, min_size=min_size, max_size=max_size, **model_kwargs)
     model.roi_heads.score_thresh = score_threshold
     return model
 
@@ -245,12 +278,21 @@ def create_ssd300_vgg16(pretrained: bool, score_threshold: float) -> torch.nn.Mo
     return model
 
 
-def create_model(model_name: str, pretrained: bool, min_size: int, max_size: int, score_threshold: float) -> torch.nn.Module:
+def create_model(
+    model_name: str,
+    pretrained: bool,
+    min_size: int,
+    max_size: int,
+    score_threshold: float,
+    anchor_preset: str = "default",
+) -> torch.nn.Module:
     if model_name == "fasterrcnn_r50":
-        return create_fasterrcnn_r50(pretrained, min_size, max_size, score_threshold)
+        return create_fasterrcnn_r50(pretrained, min_size, max_size, score_threshold, anchor_preset)
     if model_name == "fasterrcnn_r101":
-        return create_fasterrcnn_r101(pretrained, min_size, max_size, score_threshold)
+        return create_fasterrcnn_r101(pretrained, min_size, max_size, score_threshold, anchor_preset)
     if model_name == "ssd300_vgg16":
+        if anchor_preset != "default":
+            raise ValueError("--anchor-preset only applies to Faster R-CNN models")
         return create_ssd300_vgg16(pretrained, score_threshold)
     raise ValueError(f"Unsupported model: {model_name}")
 
@@ -458,6 +500,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr-gamma", default=0.1, type=float, help="StepLR gamma.")
     parser.add_argument("--min-size", default=800, type=int, help="Faster R-CNN transform min_size. Ignored by SSD.")
     parser.add_argument("--max-size", default=1333, type=int, help="Faster R-CNN transform max_size. Ignored by SSD.")
+    parser.add_argument(
+        "--anchor-preset",
+        default="default",
+        choices=ANCHOR_PRESETS,
+        help="Faster R-CNN RPN anchor preset. 'micro' uses 8/16/32/64/128 px anchors.",
+    )
     parser.add_argument("--model-score-threshold", default=0.001, type=float, help="Low inference threshold retained for COCO/operating-point metrics.")
     parser.add_argument("--fppi-threshold", default=0.25, type=float, help="Score threshold for false-positive-per-image reporting.")
     parser.add_argument("--hflip-prob", default=0.5, type=float, help="Training horizontal-flip probability.")
@@ -509,7 +557,14 @@ def main() -> None:
     summary = dataset_summary(datasets)
     (args.output_dir / "dataset_summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (args.output_dir / "config.json").write_text(json.dumps(vars(args), default=str, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"device": str(device), "model": args.model, "dataset": summary}, ensure_ascii=False, indent=2), flush=True)
+    print(
+        json.dumps(
+            {"device": str(device), "model": args.model, "anchor_preset": args.anchor_preset, "dataset": summary},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        flush=True,
+    )
 
     train_loader = make_loader(datasets["train"], args.batch_size, args.workers, shuffle=True)
     val_loader = make_loader(datasets["val"], args.eval_batch_size, args.workers, shuffle=False)
@@ -532,6 +587,7 @@ def main() -> None:
         min_size=args.min_size,
         max_size=args.max_size,
         score_threshold=args.model_score_threshold,
+        anchor_preset=args.anchor_preset,
     ).to(device)
     optimizer = torch.optim.SGD(
         [parameter for parameter in model.parameters() if parameter.requires_grad],
