@@ -634,7 +634,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--medium-weight", default=1.2, type=float)
     parser.add_argument("--large-weight", default=1.0, type=float)
     parser.add_argument("--max-positive-regions-per-image", default=16, type=int)
-    parser.add_argument("--contrastive-warmup-epochs", default=3, type=int)
+    parser.add_argument("--contrastive-warmup-epochs", default=5, type=int)
     parser.add_argument("--hard-negative-preselect", default=128, type=int)
     parser.add_argument("--hard-negatives-per-image", default=16, type=int)
     parser.add_argument("--negative-iou-threshold", default=0.1, type=float)
