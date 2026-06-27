@@ -1,0 +1,12 @@
+{
+  "rows": 112,
+  "counts": {
+    "background_false_positive": 22,
+    "in_domain_false_positive": 45,
+    "mislocalization": 2,
+    "miss": 3,
+    "out_domain_false_positive": 32,
+    "tiny_miss": 8
+  },
+  "csv": "results/dataset_ablation/errors/positive_negative_in_domain/errors_test.csv"
+}

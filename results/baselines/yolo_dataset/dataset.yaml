@@ -1,0 +1,6 @@
+path: /home/jovyan/ver_2/results/baselines/yolo_dataset
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: nine_dash_line

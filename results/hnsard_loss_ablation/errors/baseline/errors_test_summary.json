@@ -1,0 +1,12 @@
+{
+  "rows": 109,
+  "counts": {
+    "background_false_positive": 26,
+    "in_domain_false_positive": 54,
+    "mislocalization": 4,
+    "miss": 3,
+    "out_domain_false_positive": 9,
+    "tiny_miss": 13
+  },
+  "csv": "results/hnsard_loss_ablation/errors/baseline/errors_test.csv"
+}

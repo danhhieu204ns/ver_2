@@ -1,4 +1,13 @@
-python -m pip install -r requirements.txt
+conda create -n mmdet330 python=3.11 -y
+conda activate mmdet330
+
+python -m pip install "setuptools<82" wheel packaging ninja openmim --no-cache-dir
+python -m pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
+
+mim install "mmengine==0.10.7"
+mim install "mmcv==2.1.0"
+python -m pip install "mmdet==3.3.0" pycocotools --no-cache-dir
+
 bash scripts/run_all_baselines.sh
 bash scripts/run_dataset_ablation.sh
 bash scripts/run_loss_ablation.sh

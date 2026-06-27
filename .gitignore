@@ -5,5 +5,28 @@ data
 *.pth
 *.ipynb_checkpoints
 *.pt
-logs
-results
+# Ignore model/checkpoint files inside result
+results/**/*.pt
+results/**/*.pth
+results/**/*.ckpt
+results/**/*.onnx
+results/**/*.bin
+results/**/*.safetensors
+results/**/*.h5
+results/**/*.pkl
+results/**/*.joblib
+
+# Optional: ignore checkpoint/weight folders
+results/**/checkpoints/
+results/**/weights/
+
+# Ignore model weights
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.bin
+*.h5
+*.pkl
+*.joblib

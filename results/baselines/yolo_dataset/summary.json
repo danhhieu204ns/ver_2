@@ -1,0 +1,14 @@
+{
+  "train": {
+    "images": 5141,
+    "objects": 1837
+  },
+  "val": {
+    "images": 1102,
+    "objects": 402
+  },
+  "test": {
+    "images": 1101,
+    "objects": 397
+  }
+}

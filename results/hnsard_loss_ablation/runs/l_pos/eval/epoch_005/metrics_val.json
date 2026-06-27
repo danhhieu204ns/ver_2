@@ -1,0 +1,212 @@
+{
+  "mAP": 0.5692518132527942,
+  "mAP50": 0.9034293167187047,
+  "mAP75": 0.6359622654262285,
+  "mAP_small": null,
+  "mAP_medium": 0.18121241869942356,
+  "mAP_large": 0.6011512052113579,
+  "AR1": 0.5763681592039802,
+  "AR10": 0.6527363184079602,
+  "AR100": 0.6537313432835822,
+  "AR_small": null,
+  "AR_medium": 0.3888888888888889,
+  "AR_large": 0.6797814207650272,
+  "mAP_tiny_rel": 0.08303497686810397,
+  "mAP50_tiny_rel": 0.24772160115605224,
+  "mAP75_tiny_rel": 3.408258209641962e-05,
+  "AR100_tiny_rel": 0.3588235294117647,
+  "mAP_small_rel": 0.32051683103287226,
+  "mAP50_small_rel": 0.6170967267081114,
+  "mAP75_small_rel": 0.26188729733751565,
+  "AR100_small_rel": 0.4701298701298701,
+  "mAP_medium_rel": 0.4584030010793584,
+  "mAP50_medium_rel": 0.7317341405282984,
+  "mAP75_medium_rel": 0.5144454593066142,
+  "AR100_medium_rel": 0.5777777777777777,
+  "mAP_large_rel": 0.6268751168900745,
+  "mAP50_large_rel": 0.9073052065883662,
+  "mAP75_large_rel": 0.7645517873482353,
+  "AR100_large_rel": 0.7181818181818181,
+  "mAP_tiny": 0.08303497686810397,
+  "image_AUROC": 0.983092803030303,
+  "image_AP": 0.9709152204083766,
+  "FPR@95TPR": 0.07066666666666667,
+  "threshold@95TPR": 0.20266003906726837,
+  "TPR@95TPR": 0.9517045454545454,
+  "Recall@FPR=1%": 0.84375,
+  "Recall@FPR=5%": 0.9431818181818182,
+  "in_domain_FPR@95TPR": 0.11389521640091116,
+  "out_domain_FPR@95TPR": 0.00964630225080386,
+  "in_domain_FPR@fixed": 0.10478359908883828,
+  "out_domain_FPR@fixed": 0.00964630225080386,
+  "split": "val",
+  "images": 1102,
+  "ground_truth_objects": 402,
+  "input_predictions": 16289,
+  "detections": 16289,
+  "invalid_predictions_dropped": 0,
+  "fppi_threshold": 0.25,
+  "false_positives_on_negatives": {
+    "total_negative_images": 750,
+    "total_false_positives": 67,
+    "fppi": 0.08933333333333333,
+    "by_group": {
+      "negative_in_domain": {
+        "negative_images": 439,
+        "false_positives": 58,
+        "fppi": 0.13211845102505695
+      },
+      "negative_out_domain": {
+        "negative_images": 311,
+        "false_positives": 9,
+        "fppi": 0.028938906752411574
+      }
+    }
+  },
+  "predictions_above_fppi_threshold_by_group": {
+    "negative_in_domain": 58,
+    "negative_out_domain": 9,
+    "positive": 469
+  },
+  "relative_scale_metrics": {
+    "tiny": {
+      "mAP": 0.08303497686810397,
+      "mAP50": 0.24772160115605224,
+      "mAP75": 3.408258209641962e-05,
+      "mAP_small": null,
+      "mAP_medium": 0.11689317572986707,
+      "mAP_large": 0.021978021978021973,
+      "AR1": 0.14705882352941177,
+      "AR10": 0.3588235294117647,
+      "AR100": 0.3588235294117647,
+      "AR_small": null,
+      "AR_medium": 0.3625,
+      "AR_large": 0.3,
+      "objects": 17,
+      "positive_images": 14,
+      "detections": 5729
+    },
+    "small": {
+      "mAP": 0.32051683103287226,
+      "mAP50": 0.6170967267081114,
+      "mAP75": 0.26188729733751565,
+      "mAP_small": null,
+      "mAP_medium": 0.1259464311302367,
+      "mAP_large": 0.3907588174333756,
+      "AR1": 0.2766233766233766,
+      "AR10": 0.4662337662337662,
+      "AR100": 0.4701298701298701,
+      "AR_small": null,
+      "AR_medium": 0.315,
+      "AR_large": 0.5245614035087719,
+      "objects": 77,
+      "positive_images": 51,
+      "detections": 7240
+    },
+    "medium": {
+      "mAP": 0.4584030010793584,
+      "mAP50": 0.7317341405282984,
+      "mAP75": 0.5144454593066142,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.459414347929658,
+      "AR1": 0.5333333333333333,
+      "AR10": 0.5777777777777777,
+      "AR100": 0.5777777777777777,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.5777777777777777,
+      "objects": 99,
+      "positive_images": 94,
+      "detections": 2446
+    },
+    "large": {
+      "mAP": 0.6268751168900745,
+      "mAP50": 0.9073052065883662,
+      "mAP75": 0.7645517873482353,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.6268751168900745,
+      "AR1": 0.7086124401913876,
+      "AR10": 0.7181818181818181,
+      "AR100": 0.7181818181818181,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.7181818181818181,
+      "objects": 209,
+      "positive_images": 207,
+      "detections": 874
+    }
+  },
+  "image_level": {
+    "positive_images": 352,
+    "negative_images": 750,
+    "auroc": 0.983092803030303,
+    "average_precision": 0.9709152204083766,
+    "fpr_at_target_tpr": {
+      "threshold": 0.20266003906726837,
+      "tp": 335,
+      "fp": 53,
+      "tn": 697,
+      "fn": 17,
+      "tpr": 0.9517045454545454,
+      "fpr": 0.07066666666666667,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 50,
+          "fpr": 0.11389521640091116
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 3,
+          "fpr": 0.00964630225080386
+        }
+      },
+      "target_tpr": 0.95
+    },
+    "recall_at_fpr": {
+      "0.01": {
+        "max_fpr": 0.01,
+        "threshold": 0.829662561416626,
+        "recall": 0.84375,
+        "fpr": 0.008,
+        "tp": 297,
+        "fp": 6,
+        "tn": 744,
+        "fn": 55
+      },
+      "0.05": {
+        "max_fpr": 0.05,
+        "threshold": 0.39460447430610657,
+        "recall": 0.9431818181818182,
+        "fpr": 0.04533333333333334,
+        "tp": 332,
+        "fp": 34,
+        "tn": 716,
+        "fn": 20
+      }
+    },
+    "fixed_threshold": {
+      "threshold": 0.25,
+      "tp": 333,
+      "fp": 49,
+      "tn": 701,
+      "fn": 19,
+      "tpr": 0.9460227272727273,
+      "fpr": 0.06533333333333333,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 46,
+          "fpr": 0.10478359908883828
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 3,
+          "fpr": 0.00964630225080386
+        }
+      }
+    }
+  }
+}

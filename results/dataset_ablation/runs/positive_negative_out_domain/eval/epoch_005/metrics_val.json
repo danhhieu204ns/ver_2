@@ -1,0 +1,212 @@
+{
+  "mAP": 0.6409460685798318,
+  "mAP50": 0.9502952755748139,
+  "mAP75": 0.7421641641663577,
+  "mAP_small": null,
+  "mAP_medium": 0.47609433619451436,
+  "mAP_large": 0.6562067954700049,
+  "AR1": 0.6266169154228856,
+  "AR10": 0.7176616915422886,
+  "AR100": 0.7186567164179105,
+  "AR_small": null,
+  "AR_medium": 0.5944444444444444,
+  "AR_large": 0.7308743169398907,
+  "mAP_tiny_rel": 0.38368760330029983,
+  "mAP50_tiny_rel": 0.7048365620875812,
+  "mAP75_tiny_rel": 0.2908349658495261,
+  "AR100_tiny_rel": 0.5764705882352941,
+  "mAP_small_rel": 0.4534841314865479,
+  "mAP50_small_rel": 0.7722371003519126,
+  "mAP75_small_rel": 0.5089925782102257,
+  "AR100_small_rel": 0.5636363636363637,
+  "mAP_medium_rel": 0.5444803211006412,
+  "mAP50_medium_rel": 0.8225339759082773,
+  "mAP75_medium_rel": 0.5926459856097084,
+  "AR100_medium_rel": 0.6626262626262627,
+  "mAP_large_rel": 0.6851092905797573,
+  "mAP50_large_rel": 0.9362693836701053,
+  "mAP75_large_rel": 0.8265399450317337,
+  "AR100_large_rel": 0.7583732057416268,
+  "mAP_tiny": 0.38368760330029983,
+  "image_AUROC": 0.9866174242424243,
+  "image_AP": 0.9753049491719856,
+  "FPR@95TPR": 0.07733333333333334,
+  "threshold@95TPR": 0.832398533821106,
+  "TPR@95TPR": 0.9517045454545454,
+  "Recall@FPR=1%": 0.875,
+  "Recall@FPR=5%": 0.9403409090909091,
+  "in_domain_FPR@95TPR": 0.1252847380410023,
+  "out_domain_FPR@95TPR": 0.00964630225080386,
+  "in_domain_FPR@fixed": 0.32801822323462415,
+  "out_domain_FPR@fixed": 0.05466237942122187,
+  "split": "val",
+  "images": 1102,
+  "ground_truth_objects": 402,
+  "input_predictions": 7145,
+  "detections": 7145,
+  "invalid_predictions_dropped": 0,
+  "fppi_threshold": 0.25,
+  "false_positives_on_negatives": {
+    "total_negative_images": 750,
+    "total_false_positives": 205,
+    "fppi": 0.2733333333333333,
+    "by_group": {
+      "negative_in_domain": {
+        "negative_images": 439,
+        "false_positives": 181,
+        "fppi": 0.4123006833712984
+      },
+      "negative_out_domain": {
+        "negative_images": 311,
+        "false_positives": 24,
+        "fppi": 0.07717041800643087
+      }
+    }
+  },
+  "predictions_above_fppi_threshold_by_group": {
+    "negative_in_domain": 181,
+    "negative_out_domain": 24,
+    "positive": 508
+  },
+  "relative_scale_metrics": {
+    "tiny": {
+      "mAP": 0.38368760330029983,
+      "mAP50": 0.7048365620875812,
+      "mAP75": 0.2908349658495261,
+      "mAP_small": null,
+      "mAP_medium": 0.3846729834999784,
+      "mAP_large": 0.6999999999999998,
+      "AR1": 0.47647058823529403,
+      "AR10": 0.5764705882352941,
+      "AR100": 0.5764705882352941,
+      "AR_small": null,
+      "AR_medium": 0.56875,
+      "AR_large": 0.7,
+      "objects": 17,
+      "positive_images": 14,
+      "detections": 1619
+    },
+    "small": {
+      "mAP": 0.4534841314865479,
+      "mAP50": 0.7722371003519126,
+      "mAP75": 0.5089925782102257,
+      "mAP_small": null,
+      "mAP_medium": 0.3698644956255631,
+      "mAP_large": 0.48668845962882373,
+      "AR1": 0.3558441558441558,
+      "AR10": 0.5636363636363637,
+      "AR100": 0.5636363636363637,
+      "AR_small": null,
+      "AR_medium": 0.475,
+      "AR_large": 0.5947368421052631,
+      "objects": 77,
+      "positive_images": 51,
+      "detections": 1728
+    },
+    "medium": {
+      "mAP": 0.5444803211006412,
+      "mAP50": 0.8225339759082773,
+      "mAP75": 0.5926459856097084,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.5449749104655925,
+      "AR1": 0.594949494949495,
+      "AR10": 0.6626262626262627,
+      "AR100": 0.6626262626262627,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.6626262626262627,
+      "objects": 99,
+      "positive_images": 94,
+      "detections": 2292
+    },
+    "large": {
+      "mAP": 0.6851092905797573,
+      "mAP50": 0.9362693836701053,
+      "mAP75": 0.8265399450317337,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.6851097763412225,
+      "AR1": 0.7473684210526316,
+      "AR10": 0.7583732057416268,
+      "AR100": 0.7583732057416268,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.7583732057416268,
+      "objects": 209,
+      "positive_images": 207,
+      "detections": 1506
+    }
+  },
+  "image_level": {
+    "positive_images": 352,
+    "negative_images": 750,
+    "auroc": 0.9866174242424243,
+    "average_precision": 0.9753049491719856,
+    "fpr_at_target_tpr": {
+      "threshold": 0.832398533821106,
+      "tp": 335,
+      "fp": 58,
+      "tn": 692,
+      "fn": 17,
+      "tpr": 0.9517045454545454,
+      "fpr": 0.07733333333333334,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 55,
+          "fpr": 0.1252847380410023
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 3,
+          "fpr": 0.00964630225080386
+        }
+      },
+      "target_tpr": 0.95
+    },
+    "recall_at_fpr": {
+      "0.01": {
+        "max_fpr": 0.01,
+        "threshold": 0.9796709418296814,
+        "recall": 0.875,
+        "fpr": 0.009333333333333334,
+        "tp": 308,
+        "fp": 7,
+        "tn": 743,
+        "fn": 44
+      },
+      "0.05": {
+        "max_fpr": 0.05,
+        "threshold": 0.9120479226112366,
+        "recall": 0.9403409090909091,
+        "fpr": 0.04933333333333333,
+        "tp": 331,
+        "fp": 37,
+        "tn": 713,
+        "fn": 21
+      }
+    },
+    "fixed_threshold": {
+      "threshold": 0.25,
+      "tp": 348,
+      "fp": 161,
+      "tn": 589,
+      "fn": 4,
+      "tpr": 0.9886363636363636,
+      "fpr": 0.21466666666666667,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 144,
+          "fpr": 0.32801822323462415
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 17,
+          "fpr": 0.05466237942122187
+        }
+      }
+    }
+  }
+}

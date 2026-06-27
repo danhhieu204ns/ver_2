@@ -1,0 +1,212 @@
+{
+  "mAP": 0.6145339687262967,
+  "mAP50": 0.9261319328232023,
+  "mAP75": 0.7116962336139251,
+  "mAP_small": null,
+  "mAP_medium": 0.3498487226152516,
+  "mAP_large": 0.6380739351944972,
+  "AR1": 0.6049751243781094,
+  "AR10": 0.6870646766169154,
+  "AR100": 0.6883084577114428,
+  "AR_small": null,
+  "AR_medium": 0.5305555555555554,
+  "AR_large": 0.7038251366120218,
+  "mAP_tiny_rel": 0.2720922285898195,
+  "mAP50_tiny_rel": 0.5649984408760286,
+  "mAP75_tiny_rel": 0.22931345598788813,
+  "AR100_tiny_rel": 0.4470588235294118,
+  "mAP_small_rel": 0.3586791559776115,
+  "mAP50_small_rel": 0.6943144735389444,
+  "mAP75_small_rel": 0.3109083529411614,
+  "AR100_small_rel": 0.49350649350649356,
+  "mAP_medium_rel": 0.4940777513751568,
+  "mAP50_medium_rel": 0.7385114657119806,
+  "mAP75_medium_rel": 0.6184407256678635,
+  "AR100_medium_rel": 0.6343434343434343,
+  "mAP_large_rel": 0.6707961140065879,
+  "mAP50_large_rel": 0.9318956175039302,
+  "mAP75_large_rel": 0.7994605512163109,
+  "AR100_large_rel": 0.7382775119617225,
+  "mAP_tiny": 0.2720922285898195,
+  "image_AUROC": 0.9884128787878788,
+  "image_AP": 0.9764629299440327,
+  "FPR@95TPR": 0.048,
+  "threshold@95TPR": 0.5956699848175049,
+  "TPR@95TPR": 0.9517045454545454,
+  "Recall@FPR=1%": 0.875,
+  "Recall@FPR=5%": 0.9517045454545454,
+  "in_domain_FPR@95TPR": 0.07061503416856492,
+  "out_domain_FPR@95TPR": 0.01607717041800643,
+  "in_domain_FPR@fixed": 0.13895216400911162,
+  "out_domain_FPR@fixed": 0.05144694533762058,
+  "split": "val",
+  "images": 1102,
+  "ground_truth_objects": 402,
+  "input_predictions": 9438,
+  "detections": 9438,
+  "invalid_predictions_dropped": 0,
+  "fppi_threshold": 0.25,
+  "false_positives_on_negatives": {
+    "total_negative_images": 750,
+    "total_false_positives": 94,
+    "fppi": 0.12533333333333332,
+    "by_group": {
+      "negative_in_domain": {
+        "negative_images": 439,
+        "false_positives": 74,
+        "fppi": 0.16856492027334852
+      },
+      "negative_out_domain": {
+        "negative_images": 311,
+        "false_positives": 20,
+        "fppi": 0.06430868167202572
+      }
+    }
+  },
+  "predictions_above_fppi_threshold_by_group": {
+    "negative_in_domain": 74,
+    "negative_out_domain": 20,
+    "positive": 492
+  },
+  "relative_scale_metrics": {
+    "tiny": {
+      "mAP": 0.2720922285898195,
+      "mAP50": 0.5649984408760286,
+      "mAP75": 0.22931345598788813,
+      "mAP_small": null,
+      "mAP_medium": 0.2912884767974985,
+      "mAP_large": 0.003488372093023255,
+      "AR1": 0.3411764705882353,
+      "AR10": 0.41764705882352937,
+      "AR100": 0.4470588235294118,
+      "AR_small": null,
+      "AR_medium": 0.45625,
+      "AR_large": 0.3,
+      "objects": 17,
+      "positive_images": 14,
+      "detections": 2283
+    },
+    "small": {
+      "mAP": 0.3586791559776115,
+      "mAP50": 0.6943144735389444,
+      "mAP75": 0.3109083529411614,
+      "mAP_small": null,
+      "mAP_medium": 0.2742580236357843,
+      "mAP_large": 0.39426409931102474,
+      "AR1": 0.3064935064935065,
+      "AR10": 0.49350649350649356,
+      "AR100": 0.49350649350649356,
+      "AR_small": null,
+      "AR_medium": 0.42499999999999993,
+      "AR_large": 0.5175438596491228,
+      "objects": 77,
+      "positive_images": 51,
+      "detections": 3625
+    },
+    "medium": {
+      "mAP": 0.4940777513751568,
+      "mAP50": 0.7385114657119806,
+      "mAP75": 0.6184407256678635,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.49478877136819804,
+      "AR1": 0.5777777777777777,
+      "AR10": 0.6343434343434343,
+      "AR100": 0.6343434343434343,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.6343434343434343,
+      "objects": 99,
+      "positive_images": 94,
+      "detections": 2529
+    },
+    "large": {
+      "mAP": 0.6707961140065879,
+      "mAP50": 0.9318956175039302,
+      "mAP75": 0.7994605512163109,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.6707963734465974,
+      "AR1": 0.7291866028708134,
+      "AR10": 0.7382775119617225,
+      "AR100": 0.7382775119617225,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.7382775119617225,
+      "objects": 209,
+      "positive_images": 207,
+      "detections": 1001
+    }
+  },
+  "image_level": {
+    "positive_images": 352,
+    "negative_images": 750,
+    "auroc": 0.9884128787878788,
+    "average_precision": 0.9764629299440327,
+    "fpr_at_target_tpr": {
+      "threshold": 0.5956699848175049,
+      "tp": 335,
+      "fp": 36,
+      "tn": 714,
+      "fn": 17,
+      "tpr": 0.9517045454545454,
+      "fpr": 0.048,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 31,
+          "fpr": 0.07061503416856492
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 5,
+          "fpr": 0.01607717041800643
+        }
+      },
+      "target_tpr": 0.95
+    },
+    "recall_at_fpr": {
+      "0.01": {
+        "max_fpr": 0.01,
+        "threshold": 0.9438601732254028,
+        "recall": 0.875,
+        "fpr": 0.009333333333333334,
+        "tp": 308,
+        "fp": 7,
+        "tn": 743,
+        "fn": 44
+      },
+      "0.05": {
+        "max_fpr": 0.05,
+        "threshold": 0.5956699848175049,
+        "recall": 0.9517045454545454,
+        "fpr": 0.048,
+        "tp": 335,
+        "fp": 36,
+        "tn": 714,
+        "fn": 17
+      }
+    },
+    "fixed_threshold": {
+      "threshold": 0.25,
+      "tp": 344,
+      "fp": 77,
+      "tn": 673,
+      "fn": 8,
+      "tpr": 0.9772727272727273,
+      "fpr": 0.10266666666666667,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 61,
+          "fpr": 0.13895216400911162
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 16,
+          "fpr": 0.05144694533762058
+        }
+      }
+    }
+  }
+}

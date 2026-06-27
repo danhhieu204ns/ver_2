@@ -1,0 +1,212 @@
+{
+  "mAP": 0.5851175962023726,
+  "mAP50": 0.9084605469603223,
+  "mAP75": 0.646901163781102,
+  "mAP_small": null,
+  "mAP_medium": 0.20786594667732367,
+  "mAP_large": 0.6150742008891441,
+  "AR1": 0.5878109452736318,
+  "AR10": 0.6676616915422886,
+  "AR100": 0.6694029850746268,
+  "AR_small": null,
+  "AR_medium": 0.4333333333333334,
+  "AR_large": 0.6926229508196721,
+  "mAP_tiny_rel": 0.09334810032298808,
+  "mAP50_tiny_rel": 0.28286373165732304,
+  "mAP75_tiny_rel": 0.053728982365692186,
+  "AR100_tiny_rel": 0.3529411764705882,
+  "mAP_small_rel": 0.34330454303458646,
+  "mAP50_small_rel": 0.6255900339109818,
+  "mAP75_small_rel": 0.31530744760751783,
+  "AR100_small_rel": 0.5012987012987014,
+  "mAP_medium_rel": 0.4814332246763344,
+  "mAP50_medium_rel": 0.7343322487722613,
+  "mAP75_medium_rel": 0.5485118198883968,
+  "AR100_medium_rel": 0.5969696969696969,
+  "mAP_large_rel": 0.645358371871316,
+  "mAP50_large_rel": 0.9273112636194467,
+  "mAP75_large_rel": 0.7662114780328713,
+  "AR100_large_rel": 0.7301435406698564,
+  "mAP_tiny": 0.09334810032298808,
+  "image_AUROC": 0.9837992424242424,
+  "image_AP": 0.9648352745535382,
+  "FPR@95TPR": 0.06133333333333333,
+  "threshold@95TPR": 0.3785923421382904,
+  "TPR@95TPR": 0.9517045454545454,
+  "Recall@FPR=1%": 0.7840909090909091,
+  "Recall@FPR=5%": 0.9431818181818182,
+  "in_domain_FPR@95TPR": 0.09567198177676538,
+  "out_domain_FPR@95TPR": 0.012861736334405145,
+  "in_domain_FPR@fixed": 0.1252847380410023,
+  "out_domain_FPR@fixed": 0.01929260450160772,
+  "split": "val",
+  "images": 1102,
+  "ground_truth_objects": 402,
+  "input_predictions": 14002,
+  "detections": 14002,
+  "invalid_predictions_dropped": 0,
+  "fppi_threshold": 0.25,
+  "false_positives_on_negatives": {
+    "total_negative_images": 750,
+    "total_false_positives": 81,
+    "fppi": 0.108,
+    "by_group": {
+      "negative_in_domain": {
+        "negative_images": 439,
+        "false_positives": 64,
+        "fppi": 0.14578587699316628
+      },
+      "negative_out_domain": {
+        "negative_images": 311,
+        "false_positives": 17,
+        "fppi": 0.05466237942122187
+      }
+    }
+  },
+  "predictions_above_fppi_threshold_by_group": {
+    "negative_in_domain": 64,
+    "negative_out_domain": 17,
+    "positive": 508
+  },
+  "relative_scale_metrics": {
+    "tiny": {
+      "mAP": 0.09334810032298808,
+      "mAP50": 0.28286373165732304,
+      "mAP75": 0.053728982365692186,
+      "mAP_small": null,
+      "mAP_medium": 0.10544843918479105,
+      "mAP_large": 0.05333333333333332,
+      "AR1": 0.17058823529411765,
+      "AR10": 0.3529411764705882,
+      "AR100": 0.3529411764705882,
+      "AR_small": null,
+      "AR_medium": 0.35625,
+      "AR_large": 0.3,
+      "objects": 17,
+      "positive_images": 14,
+      "detections": 4172
+    },
+    "small": {
+      "mAP": 0.34330454303458646,
+      "mAP50": 0.6255900339109818,
+      "mAP75": 0.31530744760751783,
+      "mAP_small": null,
+      "mAP_medium": 0.18007912256054318,
+      "mAP_large": 0.40623261502720287,
+      "AR1": 0.2922077922077922,
+      "AR10": 0.5,
+      "AR100": 0.5012987012987014,
+      "AR_small": null,
+      "AR_medium": 0.355,
+      "AR_large": 0.5526315789473684,
+      "objects": 77,
+      "positive_images": 51,
+      "detections": 6117
+    },
+    "medium": {
+      "mAP": 0.4814332246763344,
+      "mAP50": 0.7343322487722613,
+      "mAP75": 0.5485118198883968,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.481760120518014,
+      "AR1": 0.5494949494949495,
+      "AR10": 0.5969696969696969,
+      "AR100": 0.5969696969696969,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.5969696969696969,
+      "objects": 99,
+      "positive_images": 94,
+      "detections": 2700
+    },
+    "large": {
+      "mAP": 0.645358371871316,
+      "mAP50": 0.9273112636194467,
+      "mAP75": 0.7662114780328713,
+      "mAP_small": null,
+      "mAP_medium": null,
+      "mAP_large": 0.6453589590065361,
+      "AR1": 0.7215311004784689,
+      "AR10": 0.7301435406698564,
+      "AR100": 0.7301435406698564,
+      "AR_small": null,
+      "AR_medium": null,
+      "AR_large": 0.7301435406698564,
+      "objects": 209,
+      "positive_images": 207,
+      "detections": 1013
+    }
+  },
+  "image_level": {
+    "positive_images": 352,
+    "negative_images": 750,
+    "auroc": 0.9837992424242424,
+    "average_precision": 0.9648352745535382,
+    "fpr_at_target_tpr": {
+      "threshold": 0.3785923421382904,
+      "tp": 335,
+      "fp": 46,
+      "tn": 704,
+      "fn": 17,
+      "tpr": 0.9517045454545454,
+      "fpr": 0.06133333333333333,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 42,
+          "fpr": 0.09567198177676538
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 4,
+          "fpr": 0.012861736334405145
+        }
+      },
+      "target_tpr": 0.95
+    },
+    "recall_at_fpr": {
+      "0.01": {
+        "max_fpr": 0.01,
+        "threshold": 0.9527894854545593,
+        "recall": 0.7840909090909091,
+        "fpr": 0.008,
+        "tp": 276,
+        "fp": 6,
+        "tn": 744,
+        "fn": 76
+      },
+      "0.05": {
+        "max_fpr": 0.05,
+        "threshold": 0.4514438509941101,
+        "recall": 0.9431818181818182,
+        "fpr": 0.04933333333333333,
+        "tp": 332,
+        "fp": 37,
+        "tn": 713,
+        "fn": 20
+      }
+    },
+    "fixed_threshold": {
+      "threshold": 0.25,
+      "tp": 340,
+      "fp": 61,
+      "tn": 689,
+      "fn": 12,
+      "tpr": 0.9659090909090909,
+      "fpr": 0.08133333333333333,
+      "by_negative_group": {
+        "negative_in_domain": {
+          "negative_images": 439,
+          "false_positive_images": 55,
+          "fpr": 0.1252847380410023
+        },
+        "negative_out_domain": {
+          "negative_images": 311,
+          "false_positive_images": 6,
+          "fpr": 0.01929260450160772
+        }
+      }
+    }
+  }
+}
