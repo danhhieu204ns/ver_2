@@ -30,8 +30,8 @@ TEACHER_CROP_BATCH_SIZE="${TEACHER_CROP_BATCH_SIZE:-32}"
 TEACHER_LOCAL_FILES_ONLY="${TEACHER_LOCAL_FILES_ONLY:-0}"
 TEACHER_FP16="${TEACHER_FP16:-0}"
 
-LAMBDA_POS_GRID="${LAMBDA_POS_GRID:-0 0.01 0.025 0.05 0.1}"
-LAMBDA_CON_GRID="${LAMBDA_CON_GRID:-0 0.025 0.05 0.1}"
+LAMBDA_POS_GRID="${LAMBDA_POS_GRID:-0 0.0025 0.005 0.01 0.02 0.05}"
+LAMBDA_CON_GRID="${LAMBDA_CON_GRID:-0 0.02 0.05 0.1}"
 CONTRASTIVE_WARMUP_EPOCHS="${CONTRASTIVE_WARMUP_EPOCHS:-5}"
 SCALE_AWARE="${SCALE_AWARE:-1}"
 TINY_WEIGHT="${TINY_WEIGHT:-1.5}"
@@ -41,6 +41,7 @@ LARGE_WEIGHT="${LARGE_WEIGHT:-1.0}"
 HARD_NEGATIVE_PRESELECT="${HARD_NEGATIVE_PRESELECT:-128}"
 HARD_NEGATIVES_PER_IMAGE="${HARD_NEGATIVES_PER_IMAGE:-16}"
 MAX_POSITIVE_REGIONS_PER_IMAGE="${MAX_POSITIVE_REGIONS_PER_IMAGE:-16}"
+POSITIVE_PROPOSAL_IOU_THRESHOLD="${POSITIVE_PROPOSAL_IOU_THRESHOLD:-0.5}"
 TEACHER_BANK_SIZE="${TEACHER_BANK_SIZE:-512}"
 
 DRY_RUN="${DRY_RUN:-0}"
@@ -111,6 +112,7 @@ base_train_args() {
     --medium-weight "$MEDIUM_WEIGHT"
     --large-weight "$LARGE_WEIGHT"
     --max-positive-regions-per-image "$MAX_POSITIVE_REGIONS_PER_IMAGE"
+    --positive-proposal-iou-threshold "$POSITIVE_PROPOSAL_IOU_THRESHOLD"
     --hard-negative-preselect "$HARD_NEGATIVE_PRESELECT"
     --hard-negatives-per-image "$HARD_NEGATIVES_PER_IMAGE"
     --teacher-bank-size "$TEACHER_BANK_SIZE"
@@ -169,6 +171,7 @@ fields = [
     "lambda_pos",
     "lambda_con",
     "scale_aware",
+    "positive_proposal_iou_threshold",
     "contrastive_warmup_epochs",
     "tiny_weight",
     "small_weight",
@@ -247,6 +250,7 @@ if result_root.is_dir():
             "lambda_pos": config.get("lambda_pos"),
             "lambda_con": config.get("lambda_con"),
             "scale_aware": config.get("scale_aware"),
+            "positive_proposal_iou_threshold": config.get("positive_proposal_iou_threshold"),
             "contrastive_warmup_epochs": config.get("contrastive_warmup_epochs"),
             "tiny_weight": config.get("tiny_weight"),
             "small_weight": config.get("small_weight"),

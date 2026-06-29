@@ -262,46 +262,97 @@ def scale_weights_for_boxes(
     return weights
 
 
-def collect_positive_regions(
+def select_positive_proposal_indices(
+    positive_indices: torch.Tensor,
+    max_ious: torch.Tensor,
+    matched_gt_indices: torch.Tensor,
+    gt_count: int,
+    limit: int,
+) -> torch.Tensor:
+    if positive_indices.numel() == 0:
+        return positive_indices
+
+    if limit <= 0 or positive_indices.numel() <= limit:
+        order = torch.argsort(max_ious[positive_indices], descending=True)
+        return positive_indices[order]
+
+    per_gt_selected: list[torch.Tensor] = []
+    for gt_index in range(gt_count):
+        gt_mask = matched_gt_indices[positive_indices] == gt_index
+        gt_positive_indices = positive_indices[gt_mask]
+        if gt_positive_indices.numel() == 0:
+            continue
+        best_local = torch.argmax(max_ious[gt_positive_indices])
+        per_gt_selected.append(gt_positive_indices[best_local])
+
+    if per_gt_selected:
+        selected = torch.stack(per_gt_selected)
+        selected = selected[torch.argsort(max_ious[selected], descending=True)]
+        if selected.numel() >= limit:
+            return selected[:limit]
+
+        already_selected = (positive_indices[:, None] == selected[None, :]).any(dim=1)
+        remaining = positive_indices[~already_selected]
+    else:
+        selected = positive_indices.new_empty((0,), dtype=torch.long)
+        remaining = positive_indices
+
+    remaining = remaining[torch.argsort(max_ious[remaining], descending=True)]
+    fill_count = max(0, limit - int(selected.numel()))
+    selected = torch.cat([selected, remaining[:fill_count]], dim=0)
+    return selected[torch.argsort(max_ious[selected], descending=True)]
+
+
+def collect_predicted_positive_regions(
     original_images: list[torch.Tensor],
     original_targets: list[dict[str, torch.Tensor]],
     transformed_targets: list[dict[str, torch.Tensor]],
+    proposals: list[torch.Tensor],
     args: argparse.Namespace,
 ) -> tuple[list[int], torch.Tensor, list[torch.Tensor], torch.Tensor]:
     image_indices: list[int] = []
-    original_boxes: list[torch.Tensor] = []
-    transformed_boxes_by_image: list[torch.Tensor] = []
+    teacher_boxes: list[torch.Tensor] = []
+    proposal_boxes_by_image: list[torch.Tensor] = []
     weights: list[torch.Tensor] = []
 
-    for image_index, (image, original_target, transformed_target) in enumerate(
-        zip(original_images, original_targets, transformed_targets)
+    for image_index, (image, original_target, transformed_target, proposal) in enumerate(
+        zip(original_images, original_targets, transformed_targets, proposals)
     ):
-        boxes = original_target["boxes"]
-        transformed_boxes = transformed_target["boxes"]
-        if len(boxes) == 0:
-            transformed_boxes_by_image.append(transformed_boxes.new_empty((0, 4)))
+        original_gt_boxes = original_target["boxes"]
+        transformed_gt_boxes = transformed_target["boxes"]
+        if len(original_gt_boxes) == 0 or len(proposal) == 0:
+            proposal_boxes_by_image.append(proposal.new_empty((0, 4)))
             continue
 
-        if args.max_positive_regions_per_image > 0 and len(boxes) > args.max_positive_regions_per_image:
-            selected = torch.randperm(len(boxes), device=boxes.device)[: args.max_positive_regions_per_image]
-        else:
-            selected = torch.arange(len(boxes), device=boxes.device)
+        ious = box_iou(proposal, transformed_gt_boxes)
+        max_ious, matched_gt_indices = ious.max(dim=1)
+        positive_indices = torch.nonzero(max_ious >= args.positive_proposal_iou_threshold).flatten()
+        selected = select_positive_proposal_indices(
+            positive_indices,
+            max_ious,
+            matched_gt_indices,
+            int(len(transformed_gt_boxes)),
+            args.max_positive_regions_per_image,
+        )
+        if selected.numel() == 0:
+            proposal_boxes_by_image.append(proposal.new_empty((0, 4)))
+            continue
 
-        selected_original = boxes[selected]
-        selected_transformed = transformed_boxes[selected]
-        image_indices.extend([image_index] * len(selected))
-        original_boxes.append(selected_original)
-        transformed_boxes_by_image.append(selected_transformed)
-        weights.append(scale_weights_for_boxes(selected_original, image, args.scale_aware, args))
+        selected_proposals = proposal[selected]
+        selected_teacher_boxes = original_gt_boxes[matched_gt_indices[selected]]
+        image_indices.extend([image_index] * int(selected.numel()))
+        teacher_boxes.append(selected_teacher_boxes)
+        proposal_boxes_by_image.append(selected_proposals)
+        weights.append(scale_weights_for_boxes(selected_teacher_boxes, image, args.scale_aware, args))
 
-    if original_boxes:
-        flat_original_boxes = torch.cat(original_boxes, dim=0)
+    if teacher_boxes:
+        flat_teacher_boxes = torch.cat(teacher_boxes, dim=0)
         flat_weights = torch.cat(weights, dim=0)
     else:
         device = original_images[0].device
-        flat_original_boxes = torch.empty((0, 4), device=device)
+        flat_teacher_boxes = torch.empty((0, 4), device=device)
         flat_weights = torch.empty((0,), device=device)
-    return image_indices, flat_original_boxes, transformed_boxes_by_image, flat_weights
+    return image_indices, flat_teacher_boxes, proposal_boxes_by_image, flat_weights
 
 
 def positive_distillation_loss(
@@ -310,30 +361,32 @@ def positive_distillation_loss(
     original_images: list[torch.Tensor],
     original_targets: list[dict[str, torch.Tensor]],
     transformed_targets: list[dict[str, torch.Tensor]],
+    proposals: list[torch.Tensor],
     features: OrderedDict[str, torch.Tensor],
     image_sizes: list[tuple[int, int]],
     args: argparse.Namespace,
 ) -> tuple[torch.Tensor, torch.Tensor, int]:
-    image_indices, original_boxes, transformed_boxes_by_image, weights = collect_positive_regions(
+    image_indices, teacher_boxes, proposal_boxes_by_image, weights = collect_predicted_positive_regions(
         original_images,
         original_targets,
         transformed_targets,
+        proposals,
         args,
     )
     device = next(iter(features.values())).device
-    if original_boxes.numel() == 0:
+    if teacher_boxes.numel() == 0:
         dim = int(model.hnsard_projection.out_features)
         return device_zero(device), torch.empty((0, dim), device=device), 0
 
-    student_features = roi_box_features(model, features, transformed_boxes_by_image, image_sizes)
+    student_features = roi_box_features(model, features, proposal_boxes_by_image, image_sizes)
     student_embeddings = model.hnsard_projection(student_features)
-    teacher_embeddings = teacher.encode_regions(original_images, image_indices, original_boxes)
+    teacher_embeddings = teacher.encode_regions(original_images, image_indices, teacher_boxes)
 
     student_embeddings = nnF.normalize(student_embeddings, dim=1)
     teacher_embeddings = nnF.normalize(teacher_embeddings, dim=1)
     distances = 1.0 - (student_embeddings * teacher_embeddings).sum(dim=1)
     loss = (distances * weights).sum() / weights.sum().clamp_min(1.0)
-    return loss, teacher_embeddings.detach(), int(len(original_boxes))
+    return loss, teacher_embeddings.detach(), int(len(teacher_boxes))
 
 
 def device_zero(device: torch.device) -> torch.Tensor:
@@ -453,6 +506,7 @@ def hnsard_forward_train(
                 images,
                 targets,
                 transformed_targets,
+                proposals,
                 features,
                 transformed_images.image_sizes,
                 args,
@@ -636,6 +690,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--medium-weight", default=1.0, type=float)
     parser.add_argument("--large-weight", default=1.0, type=float)
     parser.add_argument("--max-positive-regions-per-image", default=16, type=int)
+    parser.add_argument(
+        "--positive-proposal-iou-threshold",
+        default=0.5,
+        type=float,
+        help="Minimum IoU for an RPN proposal to be used as a positive distillation region.",
+    )
     parser.add_argument("--contrastive-warmup-epochs", default=5, type=int)
     parser.add_argument("--hard-negative-preselect", default=128, type=int)
     parser.add_argument("--hard-negatives-per-image", default=16, type=int)
@@ -698,6 +758,8 @@ def main() -> None:
         raise ValueError("--clip-grad-norm must be non-negative")
     if args.lambda_pos < 0 or args.lambda_con < 0:
         raise ValueError("--lambda-pos and --lambda-con must be non-negative")
+    if not 0.0 <= args.positive_proposal_iou_threshold <= 1.0:
+        raise ValueError("--positive-proposal-iou-threshold must be in [0, 1]")
     if not args.eval_only and args.teacher_backend == "none" and (args.lambda_pos > 0 or args.lambda_con > 0):
         raise ValueError("--teacher-backend none is only valid when both HN-SARD loss weights are zero")
 

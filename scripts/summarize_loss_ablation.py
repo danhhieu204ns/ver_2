@@ -39,6 +39,7 @@ FIELDS = [
     "lambda_pos",
     "lambda_con",
     "scale_aware",
+    "positive_proposal_iou_threshold",
     "contrastive_warmup_epochs",
     "metrics_path",
 ]
@@ -137,6 +138,7 @@ def collect_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
             "lambda_pos": config.get("lambda_pos"),
             "lambda_con": config.get("lambda_con"),
             "scale_aware": config.get("scale_aware"),
+            "positive_proposal_iou_threshold": config.get("positive_proposal_iou_threshold"),
             "contrastive_warmup_epochs": config.get("contrastive_warmup_epochs"),
         }
         for field in FIELDS:
