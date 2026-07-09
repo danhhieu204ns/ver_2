@@ -15,6 +15,7 @@ results/**/*.safetensors
 results/**/*.h5
 results/**/*.pkl
 results/**/*.joblib
+results*
 
 # Optional: ignore checkpoint/weight folders
 results/**/checkpoints/
