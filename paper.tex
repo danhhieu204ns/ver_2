@@ -86,7 +86,7 @@ The three-way negative design is intentional. Positive images test localization 
 
 Table~\ref{tab:dataset} summarizes the resulting split sizes and object counts.
 
-\begin{table}[!t]
+\begin{table}[!h]
 \centering
 \caption{Dataset split summary.}
 \label{tab:dataset}
@@ -115,7 +115,7 @@ The relative-area distribution shows that tiny objects are present but relativel
 
 Fig.~\ref{fig:dataset_examples} illustrates the positive, in-domain negative, and out-of-domain negative image groups used by the benchmark.
 
-\begin{figure}[!t]
+\begin{figure}[!h]
 \centering
 \includegraphics[width=\columnwidth]{fig1_dataset_examples.png}
 \caption{Dataset examples used in the benchmark: (a) a positive nine-dash-line image, marked with a red X over the annotated target region; (b) an in-domain negative map image; and (c) an out-of-domain negative image.}
@@ -141,12 +141,12 @@ HN-SARD is designed to address two failure modes observed in preliminary experim
 
 Fig.~\ref{fig:hnsard_pipeline} summarizes the HN-SARD training flow and the separation between frozen teacher crops and full-image student detection.
 
-\begin{figure}[!t]
+\begin{figure*}[!t]
 \centering
 \includegraphics[width=\columnwidth]{fig2_hnsard_pipeline.png}
 \caption{HN-SARD training overview. The DINOv2 teacher is frozen and only receives context crops; the Faster R-CNN student receives full images.}
 \label{fig:hnsard_pipeline}
-\end{figure}
+\end{figure*}
 
 \subsection{Base Detector}
 HN-SARD is implemented on top of Faster R-CNN with a ResNet-50 FPN backbone. The standard detector loss is
@@ -198,7 +198,7 @@ All final tables use the test split. Validation is used for checkpoint selection
 \subsection{Baseline Comparison}
 Table~\ref{tab:baselines} shows complementary detector behavior. YOLOv9s obtains the highest AP and AR among the selected baselines, while HN-SARD improves AP, AP50, tiny-object AP, FPR@95TPR, and fixed-budget recall over its Faster R-CNN base.
 
-\begin{table}[!t]
+\begin{table*}[!t]
 \centering
 \caption{Main test-set comparison. AP is COCO AP, AR denotes AR@100, Img. AUROC is image-level AUROC, and FPPI is measured on negative images at score threshold 0.25.}
 \label{tab:baselines}
@@ -217,7 +217,7 @@ YOLO11s & 0.743 & 0.955 & 0.331 & 0.785 & 0.984 & 0.929 & 0.972 & 0.016 & 0.007 
 Faster R-CNN + HN-SARD (Ours) & 0.712 & \textbf{0.966} & \textbf{0.367} & 0.766 & \textbf{0.996} & \textbf{0.960} & \textbf{0.980} & 0.007 & 0.055 \\
 \bottomrule
 \end{tabular}}
-\end{table}
+\end{table*}
 
 The detector families show different tradeoffs. Faster R-CNN R50-FPN remains useful for proposal-level analysis, but its recall under a 1\% FPR budget is lower than the strongest YOLO-family models and HN-SARD. SSD obtains reasonable AP but has much lower low-FPR recall and higher FPR@95TPR. These differences motivate reporting both localization and false-positive-oriented metrics.
 
@@ -226,7 +226,7 @@ Tiny-object AP remains the weakest region. HN-SARD is competitive with the Faste
 \subsection{Dataset Ablation}
 Table~\ref{tab:dataset_ablation} shows that negative images have limited effect on AP but strongly affect moderation behavior. The selected Faster R-CNN baseline, trained with both in-domain and out-of-domain negatives, reduces FPR@95TPR from 0.088 to 0.012 and negative FPPI from 0.889 to 0.096.
 
-\begin{table}[!t]
+\begin{table}[!h]
 \centering
 \caption{Faster R-CNN R50-FPN dataset ablation on the test set. FPR-ID, FPR-OOD, and FPR@95 are measured at the 95\% image-TPR operating point; Neg. FPPI uses score threshold 0.25.}
 \label{tab:dataset_ablation}
@@ -272,7 +272,33 @@ Large weight & 0.05 & 0.05 & 0.692 & 0.329 & 0.027 & 0.940 & 0.061 \\
 The positive-only term does not consistently improve AP, suggesting that teacher alignment alone may emphasize semantic context rather than exact dashed geometry. The contrastive term is more aligned with moderation because it directly targets foreground-like negatives. The full variant reduces FPPI while not maximizing AP, reflecting the tradeoff between detection learning and negative suppression.
 
 \subsection{Error Analysis}
-The qualitative error analysis supports the metric tables. HN-SARD reduces in-domain false positives relative to the baseline, but it does not eliminate tiny misses. Remaining failures include ordinary dashed map elements, unrelated out-of-domain structures, and low-contrast or partial tiny positives.
+The qualitative error analysis supports the metric tables. Table~\ref{tab:error_counts} counts error cases at the same diagnostic threshold used for FPPI, $t=0.25$. In the dataset ablation, adding both negative groups reduces total audited errors from 455 to 106, including in-domain false positives from 225 to 48 and out-of-domain false positives from 157 to 12. In the HN-SARD weight-grid audit, the selected setting reduces total errors from 71 to 62 and background false positives from 16 to 10, while tiny misses remain unchanged.
+
+\begin{table}[!t]
+\centering
+\caption{Error-summary counts on the test set at score threshold $t=0.25$. BG FP denotes unmatched detections on positive-image background regions; ID FP and OOD FP denote false-positive negative images.}
+\label{tab:error_counts}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{llrrrrrrr}
+\toprule
+Audit & Run & Total & BG FP & ID FP & OOD FP & Misloc. & Miss & Tiny miss \\
+\midrule
+Dataset & Positive only & 455 & 62 & 225 & 157 & 6 & 2 & 3 \\
+Dataset & Both negatives & 106 & 35 & 48 & 12 & 1 & 3 & 7 \\
+HN-SARD & Faster R-CNN base & 71 & 16 & 36 & 6 & 1 & 4 & 8 \\
+HN-SARD & Selected HN-SARD & 62 & 10 & 32 & 5 & 3 & 4 & 8 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=\columnwidth]{fig3_error_examples.png}
+\caption{Representative error cases at the diagnostic threshold $t=0.25$: (a) an in-domain false positive on ordinary map strokes, (b) an out-of-domain false positive, and (c) a tiny positive miss. Red boxes show detections and green boxes show ground truth.}
+\label{fig:error_examples}
+\end{figure}
+
+Fig.~\ref{fig:error_examples} illustrates the main remaining failure modes. HN-SARD reduces false positives relative to its Faster R-CNN base, but it does not eliminate tiny misses. Remaining failures include ordinary dashed map elements, unrelated out-of-domain structures, and low-contrast or partial tiny positives.
 
 \section{Discussion}
 The results support three observations. First, in-domain negative images are essential for reducing false alarms on realistic map-like inputs. Second, image-level metrics can change substantially even when object-level AP is nearly unchanged. Third, DINOv2-based region distillation can improve selected false-positive metrics in a proposal-based detector, although it does not uniformly improve every AP metric.
