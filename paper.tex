@@ -23,7 +23,7 @@ Email: second.author@example.edu}
 \maketitle
 
 \begin{abstract}
-Detecting the nine-dash line in real imagery is a fine-grained cartographic-symbol moderation problem: the target is often small, thin, fragmented, and visually similar to ordinary map strokes. This paper introduces a real-image benchmark intended for public release, with positive samples, in-domain negative map-like samples, and out-of-domain negative samples, and evaluates detectors using both object-level and moderation-oriented image-level metrics. The benchmark contains 7,344 images and 2,636 human-annotated objects across train, validation, and test splits. We compare Faster R-CNN, SSD, and YOLO-family detectors under a common data protocol. We further propose HN-SARD, a hard-negative region distillation module that uses a frozen DINOv2 teacher to improve moderation-oriented behavior of a Faster R-CNN student. Results show that explicit negative training data substantially reduces false positives, while HN-SARD improves selected false-positive metrics over its Faster R-CNN base with comparable AP.
+Detecting the nine-dash line in real imagery is a fine-grained cartographic-symbol moderation problem: the target is often small, thin, fragmented, and visually similar to ordinary map strokes. This paper introduces a fully public real-image benchmark for nine-dash-line detection, with positive samples, in-domain negative map-like samples, and out-of-domain negative samples, and evaluates detectors using both object-level and moderation-oriented image-level metrics. The benchmark contains 7,344 images and 2,636 human-annotated objects across train, validation, and test splits. We compare Faster R-CNN, SSD, and YOLO-family detectors under a common data protocol. We further propose HN-SARD, a hard-negative region distillation module that uses a frozen DINOv2 teacher to improve moderation-oriented behavior of a Faster R-CNN student. Results show that explicit negative training data substantially reduces false positives, while HN-SARD improves selected false-positive metrics over its Faster R-CNN base with comparable AP.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -41,7 +41,7 @@ We frame nine-dash-line screening as a detection-and-decision task. At the detec
 
 This paper makes three contributions:
 \begin{itemize}
-    \item We construct a real-image nine-dash-line benchmark intended for public release, with positive images, in-domain negative images, and out-of-domain negative images.
+    \item We construct a fully public real-image nine-dash-line benchmark with positive images, in-domain negative images, and out-of-domain negative images.
     \item We define a moderation-oriented evaluation protocol that combines COCO-style detection metrics with image-level false-positive metrics.
     \item We propose and ablate HN-SARD, a DINOv2-based hard-negative region distillation module for improving false-positive-oriented behavior of a Faster R-CNN detector.
 \end{itemize}
@@ -76,11 +76,9 @@ The key design choice is region-level rather than image-level distillation: crop
 
 \section{Dataset}
 \subsection{Data Organization}
-Images were collected from public Internet sources and organized into three groups: \texttt{positive}, \texttt{negative\_in\_domain}, and \texttt{negative\_out\_domain}. Positive images contain annotated nine-dash-line bounding boxes. In-domain negatives contain map or geographic imagery without the target symbol. Out-of-domain negatives contain non-map imagery and are included to measure broad-domain robustness. The benchmark package is intended for public release with annotations, split metadata, and evaluation code.
+Images were collected from public Internet sources and organized into three groups: \texttt{positive}, \texttt{negative\_in\_domain}, and \texttt{negative\_out\_domain}. Positive images contain annotated nine-dash-line bounding boxes. In-domain negatives contain map or geographic imagery without the target symbol. Out-of-domain negatives contain non-map imagery and are included to measure broad-domain robustness. The released benchmark package includes all images, human annotations, train/validation/test split metadata, and evaluation code. All released images are cleared for academic redistribution, with source attribution included where required.
 
 Each record stores the image file name, image size, split assignment, and a list of object annotations. Bounding boxes are represented in $(x,y,w,h)$ format and are clipped to the image bounds during training and evaluation. Negative records have an empty object list. This uniform representation allows the same evaluation code to handle detection metrics, image-level scores, and false-positive analysis across all groups.
-
-Because the images originate from public Internet sources with heterogeneous redistribution rights, the release plan separates benchmark metadata from image redistribution. Images will be redistributed only when source terms permit it; otherwise the release will provide the annotation, split, and evaluation protocol needed to reproduce the benchmark where access rights allow.
 
 The three-way negative design is intentional. Positive images test localization and recall. In-domain negatives test whether the detector can reject clean maps, geographic diagrams, or map-like layouts that contain line patterns but not the target symbol. Out-of-domain negatives test whether the detector produces spurious boxes on unrelated images. Treating these groups separately avoids hiding map-specific false positives inside a large pool of easy negatives.
 
@@ -137,13 +135,13 @@ Unlike image-level FPR, FPPI counts multiple false detections in the same negati
 
 \section{Method}
 \subsection{Overview}
-HN-SARD is designed to address two failure modes observed in preliminary experiments: missed small or thin positives, and false positives on clean negative maps. The method augments a standard detector with two auxiliary signals. First, positive region distillation aligns student RoI features with DINOv2 features extracted from context-enlarged ground-truth crops. Second, hard-negative contrastive distillation pushes foreground-like negative proposals away from recent positive teacher embeddings.
+HN-SARD is designed to improve the RoI representation associated with two observed failure modes: weak positive evidence for small or thin targets, and foreground-like false positives on clean negative maps. The method augments a standard detector with two auxiliary signals. First, positive region distillation aligns student RoI features with DINOv2 features extracted from context-enlarged ground-truth crops. Second, hard-negative contrastive distillation pushes foreground-like negative proposals away from recent positive teacher embeddings.
 
 Fig.~\ref{fig:hnsard_pipeline} summarizes the HN-SARD training flow and the separation between frozen teacher crops and full-image student detection.
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\columnwidth]{fig2_hnsard_pipeline.png}
+\includegraphics[width=\textwidth]{fig2_hnsard_pipeline.png}
 \caption{HN-SARD training overview. The DINOv2 teacher is frozen and only receives context crops; the Faster R-CNN student receives full images.}
 \label{fig:hnsard_pipeline}
 \end{figure*}
@@ -161,31 +159,37 @@ For each selected positive proposal, the matched ground-truth box is expanded by
 The crop operation is performed on the original image tensor before detector resizing, so the teacher sees the annotation evidence rather than the detector's transformed coordinate system. Context expansion includes nearby map strokes and labels, and crops crossing image boundaries are clipped to the valid region.
 
 \subsection{Positive Region Distillation}
-Let $\hat{z}^{S}_{i}$ be the normalized projected student embedding for proposal $i$, and let $\hat{z}^{T}_{i}$ be the normalized teacher embedding for its matched context crop. The positive distillation term is
+Let $\hat{z}^{S}_{i}$ be the normalized projected student embedding for proposal $i$, and let $\hat{z}^{T}_{i}$ be the normalized teacher embedding for its matched context crop. In the selected scale-aware setting, the positive distillation term is a weighted cosine distance,
 \begin{equation}
 L_{\mathrm{pos}} =
-\frac{1}{|P|}\sum_{i \in P} \left(1 - \hat{z}^{S}_{i} \cdot \hat{z}^{T}_{i}\right).
+\frac{\sum_{i \in P} w_i \left(1 - \hat{z}^{S}_{i} \cdot \hat{z}^{T}_{i}\right)}
+{\sum_{i \in P} w_i}.
 \end{equation}
-Positive proposals require IoU $\geq0.5$ with a ground-truth box, and up to 16 positive regions are sampled per image.
+Here $w_i$ is determined from the relative area of the matched ground-truth region. In the representative configuration, boxes covering less than 1\% of the image receive weight 1.5, boxes covering 1--5\% receive weight 1.25, and larger boxes receive weight 1.0. This prevents large or easy positives from dominating the distillation signal. Positive proposals require IoU $\geq0.5$ with a ground-truth box, and up to 16 positive regions are sampled per image.
 
 The implementation first selects the highest-IoU proposal for each ground-truth object when possible, then fills the remaining budget with additional high-IoU proposals so large or easy objects do not monopolize the distillation batch.
 
 \subsection{Online Hard-Negative Contrastive Distillation}
-For each image, the implementation preselects the top 128 RPN proposals. Proposals with IoU below 0.1 to any ground-truth box, or all proposals in negative images, are considered candidate negatives. The RoI classifier scores them, and the top 16 foreground-like proposals per image are used as hard negatives. Let $\hat{z}^{N}_{j}$ be a normalized hard-negative embedding and let $\mathcal{B}$ be a queue of recent positive teacher anchors. The softplus contrastive loss is
+For each image, the implementation preselects the top 128 RPN proposals. Proposals with IoU below 0.1 to any ground-truth box, or all proposals in negative images, are considered candidate negatives. The RoI classifier scores them, and the top 16 foreground-like proposals per image are used as hard negatives. Let $\hat{z}^{N}_{j}$ be a normalized hard-negative embedding, let $\mathcal{B}$ be a queue of recent positive teacher anchors, and define the maximum positive-anchor similarity as
+\begin{equation}
+s_j = \max_{a \in \mathcal{B}} \hat{z}^{N}_{j} \cdot a .
+\end{equation}
+Since both terms are $\ell_2$-normalized, this dot product is cosine similarity. The softplus contrastive loss is averaged over the hard-negative set $\mathcal{N}$:
 \begin{equation}
 L_{\mathrm{con}} =
-\tau \log\left(1 + \exp\left(\frac{\max_{a \in \mathcal{B}} \hat{z}^{N}_{j} \cdot a - m}{\tau}\right)\right),
+\frac{1}{|\mathcal{N}|}\sum_{j \in \mathcal{N}}
+\tau \log\left(1 + \exp\left(\frac{s_j - m}{\tau}\right)\right),
 \end{equation}
-averaged over hard negatives, with margin $m=0.2$, temperature $\tau=0.1$, and queue size 512. The full training objective is
+with margin $m=0.2$, temperature $\tau=0.1$, and queue size 512. Because the implementation uses a softplus formulation, $m$ is a soft transition point rather than a hard cutoff. Hard negatives whose maximum cosine similarity exceeds the margin receive a rapidly increasing penalty, while negatives below the margin still receive a small non-zero penalty. Thus, $L_{\mathrm{con}}$ encourages, but does not strictly enforce, separation from the positive teacher-anchor queue. The full training objective is
 \begin{equation}
 L = L_{\mathrm{det}} + \lambda_{\mathrm{pos}}L_{\mathrm{pos}} + \lambda_{\mathrm{con}}L_{\mathrm{con}},
 \end{equation}
-with $\lambda_{\mathrm{pos}}=0.0025$ and $\lambda_{\mathrm{con}}=0.02$ in the representative HN-SARD setting.
+with $\lambda_{\mathrm{pos}}=0.0025$ and $\lambda_{\mathrm{con}}=0.02$ in the representative HN-SARD setting. For this selected configuration, the contrastive term uses an epoch-level warmup: its effective weight is 0 for the first five epochs and $\lambda_{\mathrm{con}}=0.02$ from epoch 6 onward.
 
-The hard-negative term is online: it uses the current detector's foreground scores, so the negative set changes as training changes. The teacher-anchor queue stores recent positive DINOv2 embeddings and is detached from gradient computation.
+The hard-negative term is online: it uses the current detector's foreground scores, so the negative set changes as training changes. The teacher-anchor queue stores recent positive DINOv2 embeddings and is detached from gradient computation. Unless otherwise stated, the selected HN-SARD configuration uses softplus contrastive loss, scale-aware positive distillation, top-128 RPN proposal preselection, and top-16 foreground-like hard negatives per image.
 
 \subsection{Ablation Variants}
-The implementation supports several loss-weight variants. The baseline disables the teacher and trains only with $L_{\mathrm{det}}$. Positive-only variants enable $L_{\mathrm{pos}}$, contrastive-only variants enable $L_{\mathrm{con}}$, and the selected HN-SARD setting combines both auxiliary losses with a contrastive warmup schedule. Reporting these variants separately is important because the positive and negative terms affect different error modes.
+The implementation supports several loss-weight variants. The baseline disables the teacher and trains only with $L_{\mathrm{det}}$. Positive-only variants enable $L_{\mathrm{pos}}$, contrastive-only variants enable $L_{\mathrm{con}}$, and the selected HN-SARD setting combines both auxiliary losses with the epoch-level contrastive warmup schedule defined above. Reporting these variants separately is important because the positive and negative terms affect different error modes.
 
 \section{Experiments}
 \subsection{Protocol}
@@ -207,7 +211,7 @@ Table~\ref{tab:baselines} shows complementary detector behavior. YOLOv9s obtains
 \toprule
 Method & AP & AP50 & AP$_t$ & AR & Img. AUROC & R@1\%FPR & R@5\%FPR & FPR@95 & Neg. FPPI \\
 \midrule
-Faster R-CNN R50-FPN & 0.685 & 0.966 & 0.325 & 0.747 & 0.986 & 0.940 & 0.974 & 0.012 & 0.096 \\
+Faster R-CNN R50-FPN & 0.685 & 0.956 & 0.325 & 0.747 & 0.986 & 0.940 & 0.974 & 0.012 & 0.096 \\
 Faster R-CNN R101-FPN & 0.617 & 0.939 & 0.255 & 0.691 & 0.993 & 0.886 & 0.974 & 0.032 & 0.120 \\
 SSD300 VGG16 & 0.673 & 0.888 & 0.206 & 0.768 & 0.962 & 0.575 & 0.832 & 0.151 & 0.317 \\
 YOLOv8s & 0.731 & 0.954 & 0.343 & 0.775 & 0.986 & 0.946 & 0.972 & 0.011 & 0.005 \\
@@ -250,7 +254,7 @@ HN-SARD is an auxiliary module for Faster R-CNN, so its controlled comparison is
 
 The ablation in Table~\ref{tab:loss_ablation} shows that small auxiliary weights are preferable. Although the highest AP is obtained by $\lambda_{\mathrm{pos}}=0.005,\lambda_{\mathrm{con}}=0$, this setting disables the contrastive term. We therefore use $\lambda_{\mathrm{pos}}=0.0025,\lambda_{\mathrm{con}}=0.02$ as the representative HN-SARD configuration: it gives nearly the same AP, matches the lowest rounded in-domain false-positive rate among the selected variants, and gives the lowest negative FPPI in this table. The R@1\%FPR column shows that these false-positive gains do not come from a collapse in image-level recall. In contrast, the large-weight setting lags the selected configuration in both AP and FPR-ID.
 
-\begin{table}[!t]
+\begin{table}[!h]
 \centering
 \caption{HN-SARD loss-weight ablation with Faster R-CNN R50-FPN on the test set. FPR-ID is measured at the 95\% image-TPR operating point; Neg. FPPI uses score threshold 0.25.}
 \label{tab:loss_ablation}
@@ -269,12 +273,14 @@ Large weight & 0.05 & 0.05 & 0.692 & 0.329 & 0.027 & 0.940 & 0.061 \\
 \end{tabular}}
 \end{table}
 
-The positive-only term does not consistently improve AP, suggesting that teacher alignment alone may emphasize semantic context rather than exact dashed geometry. The contrastive term is more aligned with moderation because it directly targets foreground-like negatives. The full variant reduces FPPI while not maximizing AP, reflecting the tradeoff between detection learning and negative suppression.
+Compared with the Faster R-CNN baseline, the selected HN-SARD setting improves AP from 0.685 to 0.712, tiny AP from 0.325 to 0.367, and R@1\%FPR from 0.940 to 0.960, while reducing negative FPPI from 0.096 to 0.055. This indicates that the auxiliary losses do not merely suppress detections; they preserve low-FPR recall while reducing review noise. The contrastive-only variant gives the best tiny AP, but its FPPI remains higher than the selected setting. The positive-only variant matches the best rounded FPR-ID and R@1\%FPR, but also leaves more false detections per negative image. Combining the two losses therefore gives the best moderation-oriented balance in this table.
+
+The remaining rows clarify the weighting sensitivity. The best-AP configuration, $\lambda_{\mathrm{pos}}=0.005,\lambda_{\mathrm{con}}=0$, slightly exceeds the selected HN-SARD in AP but disables hard-negative contrast, so it is less informative about false-positive suppression. The large-weight setting degrades both AP and FPR-ID, suggesting that strong teacher alignment can interfere with the detector objective. Small auxiliary weights are therefore important for using DINOv2 features as a regularizer rather than as a replacement for detection supervision.
 
 \subsection{Error Analysis}
 The qualitative error analysis supports the metric tables. Table~\ref{tab:error_counts} counts error cases at the same diagnostic threshold used for FPPI, $t=0.25$. In the dataset ablation, adding both negative groups reduces total audited errors from 455 to 106, including in-domain false positives from 225 to 48 and out-of-domain false positives from 157 to 12. In the HN-SARD weight-grid audit, the selected setting reduces total errors from 71 to 62 and background false positives from 16 to 10, while tiny misses remain unchanged.
 
-\begin{table}[!t]
+\begin{table}[!h]
 \centering
 \caption{Error-summary counts on the test set at score threshold $t=0.25$. BG FP denotes unmatched detections on positive-image background regions; ID FP and OOD FP denote false-positive negative images.}
 \label{tab:error_counts}
@@ -290,6 +296,10 @@ HN-SARD & Selected HN-SARD & 62 & 10 & 32 & 5 & 3 & 4 & 8 \\
 \bottomrule
 \end{tabular}}
 \end{table}
+
+Table~\ref{tab:error_counts} shows that negative training data has the largest effect on the error taxonomy. Adding both negative groups reduces total audited errors by 77\%, in-domain false positives by 79\%, and out-of-domain false positives by 92\%. Background false positives on positive images also fall from 62 to 35. The small increase in tiny misses, from 3 to 7, is consistent with the quantitative finding that false-positive control is improved more strongly than tiny-object recovery.
+
+The HN-SARD rows isolate a smaller but complementary effect under the loss-weight-grid audit. Selected HN-SARD reduces total errors from 71 to 62, background false positives from 16 to 10, in-domain false positives from 36 to 32, and out-of-domain false positives from 6 to 5. Miss counts remain unchanged for non-tiny objects and for tiny objects, while mislocalization increases from 1 to 3. This pattern supports the interpretation that HN-SARD mainly suppresses spurious foreground-like regions, rather than solving the remaining localization and tiny-object cases.
 
 \begin{figure}[!h]
 \centering
@@ -316,7 +326,7 @@ HN-SARD is currently evaluated only on Faster R-CNN R50-FPN. It may be more effe
 Future work should tune the HN-SARD hard-negative schedule, report confidence intervals for tiny-object AP, evaluate additional image-level aggregation functions, and test cross-source generalization.
 
 \section{Conclusion}
-This work presents a real-image benchmark intended for public release and a moderation-oriented protocol for nine-dash-line detection. The results show that explicit negative data substantially reduces false positives, especially on in-domain map-like negatives. HN-SARD provides a controlled DINOv2-based hard-negative region distillation study that improves selected false-positive-oriented metrics over its Faster R-CNN base while maintaining comparable AP. Together, the benchmark, protocol, and HN-SARD ablations establish a practical evaluation foundation for cartographic-symbol moderation.
+This work presents a fully public real-image benchmark and a moderation-oriented protocol for nine-dash-line detection. The results show that explicit negative data substantially reduces false positives, especially on in-domain map-like negatives. HN-SARD provides a controlled DINOv2-based hard-negative region distillation study that improves selected false-positive-oriented metrics over its Faster R-CNN base while maintaining comparable AP. Together, the benchmark, protocol, and HN-SARD ablations establish a practical evaluation foundation for cartographic-symbol moderation.
 
 \begin{thebibliography}{99}
 \bibitem{ren2015faster}
