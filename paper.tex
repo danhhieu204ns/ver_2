@@ -135,7 +135,7 @@ FPR@95TPR chooses the feasible threshold that reaches at least 95\% true-positiv
 \end{equation}
 Unlike image-level FPR, FPPI counts multiple false detections in the same negative image. It is useful for measuring how noisy a flagged image may be for a human reviewer. The fixed threshold is used only for comparable diagnostic reporting; deployment thresholds should be selected on validation data for the desired review budget.
 
-\section{HN-SARD Method}
+\section{Method}
 \subsection{Overview}
 HN-SARD is designed to address two failure modes observed in preliminary experiments: missed small or thin positives, and false positives on clean negative maps. The method augments a standard detector with two auxiliary signals. First, positive region distillation aligns student RoI features with DINOv2 features extracted from context-enlarged ground-truth crops. Second, hard-negative contrastive distillation pushes foreground-like negative proposals away from recent positive teacher embeddings.
 
