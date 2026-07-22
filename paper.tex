@@ -55,7 +55,7 @@ Hard-negative methods include online mining \cite{shrivastava2016ohem}, loss re-
 HN-SARD differs from selecting examples solely by detector loss. It first restricts attention to foreground-like proposals that have little overlap with any target, then regularizes their region representation against a queue of positive teacher anchors. Thus, the auxiliary signal acts on the feature geometry of current false-positive candidates, while the standard detector loss continues to supervise classification and localization.
 
 \textbf{Distillation from foundation models.}
-HN-SARD follows teacher--student distillation \cite{hinton2015distilling} but uses a frozen self-supervised teacher on region crops and emphasizes hard negatives \cite{li2022rank}. Detector distillation has transferred instance, localization, contrastive, and scale-aware knowledge \cite{dai2021gid,zheng2022localization,yao2021gdetkd,zhu2023scalekd}. DINO and DINOv2 provide strong general-purpose visual representations \cite{caron2021dino,oquab2023dinov2}. Previous work employed Faster R-CNN with DINOv2-based knowledge distillation for nine-dash-line detection~\cite{tran2025detecting}. Our region-level design differs from full-image distillation: resizing a matched context crop to the teacher input gives small symbolic details more pixels while retaining nearby map evidence. The teacher supplies only an auxiliary training signal and does not replace detection supervision.
+HN-SARD follows teacher--student and detector distillation \cite{hinton2015distilling,li2022rank}, but uses a frozen self-supervised teacher on region crops and explicitly emphasizes hard negatives \cite{shrivastava2016ohem,cheng2018dcr}. Detector distillation has transferred instance, localization, contrastive, and scale-aware knowledge \cite{dai2021gid,zheng2022localization,yao2021gdetkd,zhu2023scalekd}. DINO and DINOv2 provide strong general-purpose visual representations \cite{caron2021dino,oquab2023dinov2}. Previous work employed Faster R-CNN with DINOv2-based knowledge distillation for nine-dash-line detection~\cite{tran2025detecting}. Our region-level design differs from full-image distillation: resizing a matched context crop to the teacher input gives small symbolic details more pixels while retaining nearby map evidence. The teacher supplies only an auxiliary training signal and does not replace detection supervision.
 
 The positive and negative terms also use the teacher asymmetrically. Positive RoIs are aligned with their corresponding DINOv2 crop embeddings, whereas negative RoIs are not assigned artificial teacher targets. Instead, their student embeddings are separated from recent positive anchors. This avoids treating diverse background regions as a single semantic class in the teacher space.
 
@@ -361,7 +361,7 @@ We present a public nine-dash-line benchmark and moderation-oriented protocol. E
 S. Ren, K. He, R. Girshick, and J. Sun, ``Faster R-CNN: Towards real-time object detection with region proposal networks,'' in \emph{Advances in Neural Information Processing Systems}, vol. 28, 2015, pp. 91--99.
 
 \bibitem{lin2017fpn}
-T.-Y. Lin, P. Doll'ar, R. Girshick, K. He, B. Hariharan, and S. Belongie, ``Feature pyramid networks for object detection,'' in \emph{Proc. CVPR}, 2017, pp. 2117--2125.
+T.-Y. Lin, P. Doll\'ar, R. Girshick, K. He, B. Hariharan, and S. Belongie, ``Feature pyramid networks for object detection,'' in \emph{Proc. CVPR}, 2017, pp. 2117--2125.
 
 \bibitem{liu2016ssd}
 W. Liu \emph{et al.}, ``SSD: Single shot MultiBox detector,'' in \emph{Proc. ECCV}, 2016, pp. 21--37.
@@ -379,7 +379,7 @@ C.-Y. Wang, I.-H. Yeh, and H.-Y. M. Liao, ``YOLOv9: Learning what you want to le
 A. Wang \emph{et al.}, ``YOLOv10: Real-time end-to-end object detection,'' in \emph{Advances in Neural Information Processing Systems}, vol. 37, 2024, pp. 107984--108011.
 
 \bibitem{ultralytics2024yolo11}
-Ultralytics, ``Ultralytics YOLO11,'' software documentation, 2024. [Online]. Available: \url{https://docs.ultralytics.com/models/yolo11/}. [Accessed: Jul. 22, 2026].
+G. Jocher and J. Qiu, ``Ultralytics YOLO11,'' software, version 11.0.0, 2024. [Online]. Available: \url{https://github.com/ultralytics/ultralytics}. [Accessed: Jul. 22, 2026].
 
 \bibitem{kisantal2019augmentation}
 M. Kisantal, Z. Wojna, J. Murawski, J. Naruniec, and K. Cho, ``Augmentation for small object detection,'' in \emph{Proc. 9th Int. Conf. Advances in Computing and Information Technology (ACITY)}, 2019, pp. 119--133.
@@ -388,7 +388,7 @@ M. Kisantal, Z. Wojna, J. Murawski, J. Naruniec, and K. Cho, ``Augmentation for 
 A. Shrivastava, A. Gupta, and R. Girshick, ``Training region-based object detectors with online hard example mining,'' in \emph{Proc. CVPR}, 2016, pp. 761--769.
 
 \bibitem{lin2017focal}
-T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Doll'ar, ``Focal loss for dense object detection,'' in \emph{Proc. ICCV}, 2017, pp. 2980--2988.
+T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Doll\'ar, ``Focal loss for dense object detection,'' in \emph{Proc. ICCV}, 2017, pp. 2980--2988.
 
 \bibitem{cheng2018dcr}
 B. Cheng \emph{et al.}, ``Decoupled classification refinement: Hard false positive suppression for object detection,'' arXiv preprint arXiv:1810.04002, 2018.
@@ -421,7 +421,7 @@ M. Caron \emph{et al.}, ``Emerging properties in self-supervised vision transfor
 M. Oquab \emph{et al.}, ``DINOv2: Learning robust visual features without supervision,'' \emph{Trans. Mach. Learn. Res.}, 2024.
 
 \bibitem{tran2025detecting}
-T. D. Tran, H. M. Danh, and L. H. Dang, ``Detecting `Nine-Dash Line' images in digital content via Faster R-CNN and DINOv2-based knowledge distillation,'' in \emph{Proc. 2025 RIVF Int. Conf. Comput. Commun. Technol. (RIVF)}, Ho Chi Minh City, Vietnam, 2025, doi: 10.1109/RIVF68649.2025.11365135.
+T. D. Tran, H. M. Danh, and L. D. Hoang, ``Detecting `Nine-Dash Line' images in digital content via Faster R-CNN and DINOv2-based knowledge distillation,'' in \emph{Proc. 2025 RIVF Int. Conf. Comput. Commun. Technol. (RIVF)}, Ho Chi Minh City, Vietnam, 2025, pp. 322--327, doi: 10.1109/RIVF68649.2025.11365135.
 
 \bibitem{lin2014coco}
 T.-Y. Lin \emph{et al.}, ``Microsoft COCO: Common objects in context,'' in \emph{Proc. ECCV}, 2014, pp. 740--755.
