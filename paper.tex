@@ -44,18 +44,18 @@ This paper makes three contributions:
 
 \section{Related Work}
 \textbf{Object detection.}
-Faster R-CNN \cite{ren2015faster} separates region proposal and RoI classification, while FPN supports multi-scale features \cite{lin2017fpn}. Its explicit candidates are useful here because they expose foreground-like regions before the final decision. SSD \cite{liu2016ssd} and YOLO \cite{redmon2016you} instead provide one-stage speed--accuracy tradeoffs, and recent YOLO variants are competitive deployment baselines \cite{wang2024yolov9,wang2024yolov10,ultralytics2024yolo11}. We compare proposal-based, classical one-stage, and recent YOLO detectors under one data and evaluation protocol.
+Faster R-CNN \cite{ren2015faster} separates region proposal and RoI classification, while FPN supports multi-scale features \cite{lin2017fpn}. Its explicit candidates are useful here because they expose foreground-like regions before the final decision. SSD \cite{liu2016ssd} and YOLO \cite{redmon2016you} instead provide one-stage speed--accuracy tradeoffs, and recent YOLO variants are competitive deployment baselines \cite{jocher2023yolov8,wang2024yolov9,wang2024yolov10,ultralytics2024yolo11}. We compare proposal-based, classical one-stage, and recent YOLO detectors under one data and evaluation protocol.
 
 \textbf{Tiny and thin object detection.}
 Sparse line segments are sensitive to downsampling and multi-scale representation \cite{lin2017fpn,kisantal2019augmentation}. A box enclosing several dashes may become only a few pixels wide after resizing while remaining surrounded by complex map strokes. Absolute COCO area thresholds do not capture this dependence on source resolution, so we use relative-area groups: tiny $<1\%$, small $1$--$5\%$, medium $5$--$25\%$, and large $\geq25\%$. This stratification reveals scale sensitivity without treating the limited tiny subset as a standalone benchmark.
 
 \textbf{Hard negatives and false-positive control.}
-Hard-negative methods include online mining \cite{shrivastava2016ohem}, loss re-weighting \cite{lin2017focal}, and classification refinement \cite{cheng2018dcr}. These approaches emphasize difficult background rather than uniformly sampling easy negatives. Because high AP can coexist with many false alarms, we make in-domain and out-of-domain negatives explicit training and evaluation groups and report both threshold-dependent image errors and the number of false boxes.
+Hard-negative methods include online mining \cite{shrivastava2016ohem}, loss re-weighting \cite{lin2017focal}, and classification refinement \cite{cheng2018dcr}. Outlier Exposure likewise trains against auxiliary outliers to improve anomaly rejection \cite{hendrycks2019oe}. These approaches emphasize difficult background rather than uniformly sampling easy negatives. Because high AP can coexist with many false alarms, we make in-domain and out-of-domain negatives explicit training and evaluation groups and report both threshold-dependent image errors and the number of false boxes.
 
 HN-SARD differs from selecting examples solely by detector loss. It first restricts attention to foreground-like proposals that have little overlap with any target, then regularizes their region representation against a queue of positive teacher anchors. Thus, the auxiliary signal acts on the feature geometry of current false-positive candidates, while the standard detector loss continues to supervise classification and localization.
 
 \textbf{Distillation from foundation models.}
-HN-SARD follows teacher--student distillation \cite{hinton2015distilling} but uses a frozen self-supervised teacher on region crops and emphasizes hard negatives \cite{li2022rank}. DINO and DINOv2 provide strong general-purpose visual representations \cite{caron2021dino,oquab2023dinov2}. Our region-level design differs from full-image distillation: resizing a matched context crop to the teacher input gives small symbolic details more pixels while retaining nearby map evidence. The teacher supplies only an auxiliary training signal and does not replace detection supervision.
+HN-SARD follows teacher--student distillation \cite{hinton2015distilling} but uses a frozen self-supervised teacher on region crops and emphasizes hard negatives \cite{li2022rank}. Detector distillation has transferred instance, localization, contrastive, and scale-aware knowledge \cite{dai2021gid,zheng2022localization,yao2021gdetkd,zhu2023scalekd}. DINO and DINOv2 provide strong general-purpose visual representations \cite{caron2021dino,oquab2023dinov2}. Previous work employed Faster R-CNN with DINOv2-based knowledge distillation for nine-dash-line detection~\cite{tran2025detecting}. Our region-level design differs from full-image distillation: resizing a matched context crop to the teacher input gives small symbolic details more pixels while retaining nearby map evidence. The teacher supplies only an auxiliary training signal and does not replace detection supervision.
 
 The positive and negative terms also use the teacher asymmetrically. Positive RoIs are aligned with their corresponding DINOv2 crop embeddings, whereas negative RoIs are not assigned artificial teacher targets. Instead, their student embeddings are separated from recent positive anchors. This avoids treating diverse background regions as a single semantic class in the teacher space.
 
@@ -151,6 +151,27 @@ L_{\mathrm{det}} = L_{\mathrm{rpn-cls}} + L_{\mathrm{rpn-reg}} + L_{\mathrm{roi-
 \end{equation}
 A linear projection after the RoI box head maps student features to the teacher dimension. The prediction head is unchanged, and the teacher is absent at inference.
 
+\begin{table*}[!t]
+\centering
+\caption{Test-set comparison of detectors.}
+\label{tab:baselines}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+Method & AP & AP50 & AP$_t$ & AR & Img. AUROC & R@1\%FPR & R@5\%FPR & FPR@95 & Neg. FPPI \\
+\midrule
+Faster R-CNN R50-FPN & 0.685 & \textbf{0.966} & 0.325 & 0.747 & 0.986 & 0.940 & 0.974 & 0.012 & 0.096 \\
+Faster R-CNN R101-FPN & 0.617 & 0.939 & 0.255 & 0.691 & 0.993 & 0.886 & 0.974 & 0.032 & 0.120 \\
+SSD300 VGG16 & 0.673 & 0.888 & 0.206 & 0.768 & 0.962 & 0.575 & 0.832 & 0.151 & 0.317 \\
+YOLOv8s & 0.731 & 0.954 & 0.343 & 0.775 & 0.986 & 0.946 & 0.972 & 0.011 & 0.005 \\
+YOLOv9s & \textbf{0.747} & 0.953 & 0.336 & \textbf{0.791} & 0.987 & 0.957 & 0.977 & \textbf{0.003} & \textbf{0.003} \\
+YOLOv10s & 0.735 & 0.935 & 0.321 & 0.782 & 0.985 & 0.957 & 0.972 & 0.005 & \textbf{0.003} \\
+YOLO11s & 0.743 & 0.955 & 0.331 & 0.785 & 0.984 & 0.929 & 0.972 & 0.016 & 0.007 \\
+Faster R-CNN + HN-SARD (Ours) & 0.713 & \textbf{0.966} & \textbf{0.367} & 0.766 & \textbf{0.996} & \textbf{0.960} & \textbf{0.980} & 0.007 & 0.055 \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
 \subsection{Frozen DINOv2 Teacher}
 For a matched ground-truth box $(x,y,w,h)$ with center $(c_x,c_y)$, context scale $k$ gives dimensions
 \begin{equation}
@@ -201,27 +222,6 @@ The main detector comparison, dataset ablation, loss-weight ablation, and error 
 
 \subsection{Baseline Comparison}
 Table~\ref{tab:baselines} compares held-out test performance; it is not a speed benchmark or exhaustive leaderboard.
-
-\begin{table*}[!t]
-\centering
-\caption{Test-set comparison of detectors.}
-\label{tab:baselines}
-\resizebox{\linewidth}{!}{
-\begin{tabular}{lrrrrrrrrr}
-\toprule
-Method & AP & AP50 & AP$_t$ & AR & Img. AUROC & R@1\%FPR & R@5\%FPR & FPR@95 & Neg. FPPI \\
-\midrule
-Faster R-CNN R50-FPN & 0.685 & \textbf{0.966} & 0.325 & 0.747 & 0.986 & 0.940 & 0.974 & 0.012 & 0.096 \\
-Faster R-CNN R101-FPN & 0.617 & 0.939 & 0.255 & 0.691 & 0.993 & 0.886 & 0.974 & 0.032 & 0.120 \\
-SSD300 VGG16 & 0.673 & 0.888 & 0.206 & 0.768 & 0.962 & 0.575 & 0.832 & 0.151 & 0.317 \\
-YOLOv8s & 0.731 & 0.954 & 0.343 & 0.775 & 0.986 & 0.946 & 0.972 & 0.011 & 0.005 \\
-YOLOv9s & \textbf{0.747} & 0.953 & 0.336 & \textbf{0.791} & 0.987 & 0.957 & 0.977 & \textbf{0.003} & \textbf{0.003} \\
-YOLOv10s & 0.735 & 0.935 & 0.321 & 0.782 & 0.985 & 0.957 & 0.972 & 0.005 & \textbf{0.003} \\
-YOLO11s & 0.743 & 0.955 & 0.331 & 0.785 & 0.984 & 0.929 & 0.972 & 0.016 & 0.007 \\
-Faster R-CNN + HN-SARD (Ours) & 0.713 & \textbf{0.966} & \textbf{0.367} & 0.766 & \textbf{0.996} & \textbf{0.960} & \textbf{0.980} & 0.007 & 0.055 \\
-\bottomrule
-\end{tabular}}
-\end{table*}
 
 YOLOv9s has the highest AP and AR, while YOLOv9s and YOLOv10s also produce the lowest negative FPPI. HN-SARD does not surpass the strongest YOLO models in overall AP, but it improves AP, tiny AP, FPR@95TPR, and both fixed-budget recalls over its Faster R-CNN base while matching AP50. Its image AUROC of 0.996 is also the highest in the comparison. SSD's reasonable AP but weak low-FPR recall illustrates why localization and moderation metrics are complementary: models with similar AP can create substantially different review loads. Faster R-CNN remains useful for proposal-level analysis even though the strongest YOLO models achieve better overall detection results. Tiny AP remains the weakest regime and should be interpreted cautiously given the small number of tiny test objects.
 
@@ -331,67 +331,102 @@ Adding both negative groups reduces total audited errors by 77\%, ID false posit
 Fig.~\ref{fig:error_examples} shows confusion with dashed map elements and unrelated structures, plus low-contrast or partial tiny targets. These cases suggest that remaining errors depend both on map semantics and on insufficient visual evidence at small scales.
 
 \section{Discussion and Limitations}
-In-domain negatives are essential: AP changes little while review-oriented false positives fall sharply. This gap shows that a positive-only test set can overstate operational usefulness. Model selection should therefore include group-specific FPR and FPPI, not AP alone, and deployment thresholds should be chosen for the available review budget. The two diagnostics answer different questions: FPR measures how many clean images are flagged, whereas FPPI measures how many candidate boxes a reviewer may inspect within them. YOLO models show competitive false-positive behavior, whereas Faster R-CNN provides the proposal interface needed to study HN-SARD. Metric priorities remain application dependent: low-review-load screening favors FPR@95TPR and FPPI, while localization favors AP75 and scale-specific AP.
+The results show that explicit negative data is essential for
+moderation-oriented detection: it changes AP only slightly but
+substantially reduces FPR and FPPI, particularly on map-like
+in-domain negatives. Model selection should therefore consider
+group-specific false-positive metrics and review-budget recall in
+addition to object AP. The threshold $t=0.25$ is used only for
+diagnostic comparison; deployment thresholds should be selected
+on validation data. HN-SARD improves its Faster R-CNN parent
+without inference-time teacher cost, but it does not outperform
+the strongest YOLO baselines in overall AP and has only been
+evaluated with R50-FPN.
 
-For deployment, the reported $t=0.25$ is a diagnostic reference rather than a universal operating point. A system with scarce reviewer capacity should select its threshold from validation data and monitor in-domain negatives separately, since their errors dominate the remaining audit. The benchmark supports this process by retaining image scores and negative-group identities instead of collapsing all negative examples into one aggregate.
-
-Tiny AP is diagnostic because validation and test contain few tiny objects, making small numerical differences unstable. Boxes support screening but do not measure individual-dash geometry. HN-SARD is evaluated only with Faster R-CNN R50-FPN, and the detector comparison is not exhaustive or a latency benchmark. Stronger proposal generation, higher-resolution training, and features better aligned with DINOv2 may improve the method. Future work should also test cross-source generalization, alternative image-score aggregation, and confidence intervals for tiny AP.
-
-The HN-SARD results should therefore be interpreted as evidence for the region-distillation mechanism rather than a claim of universal superiority over one-stage detectors. The controlled comparison shows that a frozen foundation-model teacher can improve a proposal detector's localization and moderation behavior without inference-time teacher cost. Whether the same benefit transfers to dense prediction requires a different region-correspondence design and a separate controlled study.
-
-Dataset coverage is another source of external-validity risk. Map styles, languages, compression pipelines, and publishing sources may shift after deployment, changing both positive appearance and the difficulty of in-domain negatives. Periodic evaluation on newly collected, source-disjoint data is consequently more informative than relying on a single fixed threshold indefinitely. Such evaluation should preserve the negative taxonomy so broad-domain robustness does not mask renewed map-specific confusion.
+The benchmark also has limitations. Validation and test contain
+few tiny instances, so tiny AP is a diagnostic rather than a
+general tiny-object claim. Bounding boxes do not describe
+individual-dash geometry, and the collected data may not cover
+future shifts in map style, language, compression, and publishing
+source. Future work should study source-disjoint evaluation,
+higher-resolution training, confidence intervals for tiny AP, and
+region correspondence mechanisms for dense detectors.
 
 \section{Conclusion}
 We present a public nine-dash-line benchmark and moderation-oriented protocol. Explicit negative data substantially reduces false positives, especially on map-like images, while HN-SARD improves AP and selected moderation metrics over Faster R-CNN. The benchmark and ablations provide a practical basis for cartographic-symbol moderation research.
 
 \begin{thebibliography}{99}
+
 \bibitem{ren2015faster}
-S. Ren, K. He, R. Girshick, and J. Sun, ``Faster R-CNN: Towards real-time object detection with region proposal networks,'' in \emph{Proc. NeurIPS}, 2015.
+S. Ren, K. He, R. Girshick, and J. Sun, ``Faster R-CNN: Towards real-time object detection with region proposal networks,'' in \emph{Advances in Neural Information Processing Systems}, vol. 28, 2015, pp. 91--99.
 
 \bibitem{lin2017fpn}
-T.-Y. Lin, P. Dollar, R. Girshick, K. He, B. Hariharan, and S. Belongie, ``Feature pyramid networks for object detection,'' in \emph{Proc. CVPR}, 2017.
+T.-Y. Lin, P. Doll'ar, R. Girshick, K. He, B. Hariharan, and S. Belongie, ``Feature pyramid networks for object detection,'' in \emph{Proc. CVPR}, 2017, pp. 2117--2125.
 
 \bibitem{liu2016ssd}
-W. Liu \emph{et al.}, ``SSD: Single shot multibox detector,'' in \emph{Proc. ECCV}, 2016.
+W. Liu \emph{et al.}, ``SSD: Single shot MultiBox detector,'' in \emph{Proc. ECCV}, 2016, pp. 21--37.
 
 \bibitem{redmon2016you}
-J. Redmon, S. Divvala, R. Girshick, and A. Farhadi, ``You only look once: Unified, real-time object detection,'' in \emph{Proc. CVPR}, 2016.
+J. Redmon, S. Divvala, R. Girshick, and A. Farhadi, ``You only look once: Unified, real-time object detection,'' in \emph{Proc. CVPR}, 2016, pp. 779--788.
+
+\bibitem{jocher2023yolov8}
+G. Jocher, A. Chaurasia, and J. Qiu, ``Ultralytics YOLOv8,'' software, version 8.0.0, 2023. [Online]. Available: \url{https://github.com/ultralytics/ultralytics}. [Accessed: Jul. 22, 2026].
 
 \bibitem{wang2024yolov9}
-C.-Y. Wang, I.-H. Yeh, and H.-Y. M. Liao, ``YOLOv9: Learning what you want to learn using programmable gradient information,'' arXiv:2402.13616, 2024.
+C.-Y. Wang, I.-H. Yeh, and H.-Y. M. Liao, ``YOLOv9: Learning what you want to learn using programmable gradient information,'' in \emph{Proc. ECCV}, 2024, pp. 1--21.
 
 \bibitem{wang2024yolov10}
-A. Wang, H. Chen, L. Liu, K. Chen, Z. Lin, J. Han, and G. Ding, ``YOLOv10: Real-time end-to-end object detection,'' arXiv:2405.14458, 2024.
+A. Wang \emph{et al.}, ``YOLOv10: Real-time end-to-end object detection,'' in \emph{Advances in Neural Information Processing Systems}, vol. 37, 2024, pp. 107984--108011.
 
 \bibitem{ultralytics2024yolo11}
-Ultralytics, ``Ultralytics YOLO11,'' software documentation, 2024. [Online]. Available: \url{https://docs.ultralytics.com/models/yolo11/}
+Ultralytics, ``Ultralytics YOLO11,'' software documentation, 2024. [Online]. Available: \url{https://docs.ultralytics.com/models/yolo11/}. [Accessed: Jul. 22, 2026].
 
 \bibitem{kisantal2019augmentation}
-M. Kisantal, Z. Wojna, J. Murawski, J. Naruniec, and K. Cho, ``Augmentation for small object detection,'' arXiv:1902.07296, 2019.
+M. Kisantal, Z. Wojna, J. Murawski, J. Naruniec, and K. Cho, ``Augmentation for small object detection,'' in \emph{Proc. 9th Int. Conf. Advances in Computing and Information Technology (ACITY)}, 2019, pp. 119--133.
 
 \bibitem{shrivastava2016ohem}
-A. Shrivastava, A. Gupta, and R. Girshick, ``Training region-based object detectors with online hard example mining,'' in \emph{Proc. CVPR}, 2016.
+A. Shrivastava, A. Gupta, and R. Girshick, ``Training region-based object detectors with online hard example mining,'' in \emph{Proc. CVPR}, 2016, pp. 761--769.
 
 \bibitem{lin2017focal}
-T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Dollar, ``Focal loss for dense object detection,'' in \emph{Proc. ICCV}, 2017.
+T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Doll'ar, ``Focal loss for dense object detection,'' in \emph{Proc. ICCV}, 2017, pp. 2980--2988.
 
 \bibitem{cheng2018dcr}
-B. Cheng, Y. Wei, R. Feris, J. Xiong, W.-M. Hwu, T. Huang, and H. Shi, ``Decoupled classification refinement: Hard false positive suppression for object detection,'' arXiv:1810.04002, 2018.
+B. Cheng \emph{et al.}, ``Decoupled classification refinement: Hard false positive suppression for object detection,'' arXiv preprint arXiv:1810.04002, 2018.
+
+\bibitem{hendrycks2019oe}
+D. Hendrycks, M. Mazeika, and T. Dietterich, ``Deep anomaly detection with outlier exposure,'' in \emph{Proc. ICLR}, 2019.
 
 \bibitem{hinton2015distilling}
-G. Hinton, O. Vinyals, and J. Dean, ``Distilling the knowledge in a neural network,'' arXiv:1503.02531, 2015.
+G. Hinton, O. Vinyals, and J. Dean, ``Distilling the knowledge in a neural network,'' arXiv preprint arXiv:1503.02531, 2015.
 
 \bibitem{li2022rank}
-G. Li, X. Li, Y. Wang, S. Zhang, Y. Wu, and D. Liang, ``Knowledge distillation for object detection via rank mimicking and prediction-guided feature imitation,'' in \emph{Proc. AAAI}, 2022.
+G. Li, X. Li, Y. Wang, S. Zhang, Y. Wu, and D. Liang, ``Knowledge distillation for object detection via rank mimicking and prediction-guided feature imitation,'' in \emph{Proc. AAAI Conf. Artif. Intell.}, vol. 36, no. 2, 2022, pp. 1306--1313.
+
+\bibitem{dai2021gid}
+X. Dai, Z. Jiang, Z. Wu, Y. Bao, Z. Wang, S. Liu, and E. Zhou, ``General instance distillation for object detection,'' in \emph{Proc. CVPR}, 2021, pp. 7842--7851.
+
+\bibitem{zheng2022localization}
+Z. Zheng, R. Ye, P. Wang, D. Ren, W. Zuo, Q. Hou, and M.-M. Cheng, ``Localization distillation for dense object detection,'' in \emph{Proc. CVPR}, 2022, pp. 9407--9416.
+
+\bibitem{yao2021gdetkd}
+L. Yao, R. Pi, H. Xu, W. Zhang, Z. Li, and T. Zhang, ``G-DetKD: Towards general distillation framework for object detectors via contrastive and semantic-guided feature imitation,'' in \emph{Proc. ICCV}, 2021, pp. 3591--3600.
+
+\bibitem{zhu2023scalekd}
+Y. Zhu, Q. Zhou, N. Liu, Z. Xu, Z. Ou, X. Mou, and J. Tang, ``ScaleKD: Distilling scale-aware knowledge in small object detector,'' in \emph{Proc. CVPR}, 2023, pp. 19723--19733.
 
 \bibitem{caron2021dino}
-M. Caron, H. Touvron, I. Misra, H. Jegou, J. Mairal, P. Bojanowski, and A. Joulin, ``Emerging properties in self-supervised vision transformers,'' in \emph{Proc. ICCV}, 2021.
+M. Caron \emph{et al.}, ``Emerging properties in self-supervised vision transformers,'' in \emph{Proc. ICCV}, 2021, pp. 9650--9660.
 
 \bibitem{oquab2023dinov2}
-M. Oquab \emph{et al.}, ``DINOv2: Learning robust visual features without supervision,'' arXiv:2304.07193, 2023.
+M. Oquab \emph{et al.}, ``DINOv2: Learning robust visual features without supervision,'' \emph{Trans. Mach. Learn. Res.}, 2024.
+
+\bibitem{tran2025detecting}
+T. D. Tran, H. M. Danh, and L. H. Dang, ``Detecting `Nine-Dash Line' images in digital content via Faster R-CNN and DINOv2-based knowledge distillation,'' in \emph{Proc. 2025 RIVF Int. Conf. Comput. Commun. Technol. (RIVF)}, Ho Chi Minh City, Vietnam, 2025, doi: 10.1109/RIVF68649.2025.11365135.
 
 \bibitem{lin2014coco}
-T.-Y. Lin \emph{et al.}, ``Microsoft COCO: Common objects in context,'' in \emph{Proc. ECCV}, 2014.
+T.-Y. Lin \emph{et al.}, ``Microsoft COCO: Common objects in context,'' in \emph{Proc. ECCV}, 2014, pp. 740--755.
+
 \end{thebibliography}
+
 
 \end{document}
